@@ -2,14 +2,33 @@ require("dotenv").config();
 const express = require("express");
 const bodyParser = require("body-parser");
 const cors = require("cors");
-const { MongoClient, ObjectId } = require("mongodb");
 const bcrypt = require("bcrypt");
+const postgres = require("postgres");
 
 const app = express();
-const MONGODB_URI = process.env.MONGODB_URI;
-const PORT = 3000;
+const PORT = process.env.PORT || 3000;
 
-let db, usersCollection;
+// Create a connection to Postgres
+const sql = postgres({
+  host: process.env.DATABASE_HOST,
+  database: process.env.DATABASE_NAME,
+  username: process.env.DATABASE_USER,
+  password: process.env.DATABASE_PASSWORD,
+  ssl: "require",
+});
+
+// Test the database connection
+async function connectToDatabase() {
+  try {
+    // Running a simple query to test the connection
+    const result = await sql`SELECT NOW() as now`;
+    console.log("Connected to PostgreSQL at:", result[0].now);
+  } catch (error) {
+    console.error("Error connecting to PostgreSQL:", error);
+    process.exit(1);
+  }
+}
+connectToDatabase();
 
 app.use(cors());
 app.use(bodyParser.json());
@@ -26,28 +45,6 @@ app.use((req, res, next) => {
   );
   next();
 });
-
-async function connectToDatabase() {
-  try {
-    const client = new MongoClient(MONGODB_URI);
-    await client.connect();
-    console.log("Connected to MongoDB Atlas");
-
-    db = client.db("databaseSystems");
-    usersCollection = db.collection("Users");
-
-    const collections = await db.listCollections().toArray();
-    console.log("Collections in databaseSystems:");
-    collections.forEach((collection) => {
-      console.log(`- ${collection.name}`);
-    });
-  } catch (error) {
-    console.error("Error connecting to MongoDB:", error);
-    process.exit(1);
-  }
-}
-
-connectToDatabase();
 
 app.listen(PORT, () => {
   console.log(`Server running on port ${PORT}`);
