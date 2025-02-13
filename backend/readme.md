@@ -39,7 +39,7 @@ Once you're connected to your PostgreSQL database using `psql`, you can use seve
 For example, after connecting to your database, you might run:
 
 ```bash
-psql "postgres://<username>:<password>@<host>:<port>/<database>"
+psql "PSQL CONNECT LINK IN .ENV FILE"
 ```
 
 Then, inside the `psql` shell, type:
