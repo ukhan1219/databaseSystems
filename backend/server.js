@@ -20,9 +20,12 @@ const sql = postgres({
 // Test the database connection
 async function connectToDatabase() {
   try {
-    // Running a simple query to test the connection
-    const result = await sql`SELECT NOW() as now`;
-    console.log("Connected to PostgreSQL at:", result[0].now);
+    await sequelize.authenticate();
+    console.log("Connected to PostgreSQL database successfully.");
+    
+    // Sync models with database (optional: { force: true } will drop tables first)
+    await sequelize.sync();
+    console.log("Database models synchronized.");
   } catch (error) {
     console.error("Error connecting to PostgreSQL:", error);
     process.exit(1);
