@@ -1,5 +1,5 @@
 const { DataTypes } = require("sequelize");
-const sequelize = require("../config/database");
+const sequelize = require("../config/db");
 const User = require("./User");  // Import the User model
 const Rso = require("./Rso");    // Import the Rso model (will be created later)
 const University = require("./University"); // Import University model (will be created later)

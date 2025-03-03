@@ -1,54 +1,25 @@
-require("dotenv").config();
 const express = require("express");
-const bodyParser = require("body-parser");
 const cors = require("cors");
-const bcrypt = require("bcrypt");
-const postgres = require("postgres");
+require("dotenv").config();
+const authRoutes = require("./routes/auth");
+const sequelize = require("./config/db");
+const User = require("./models/User");
 
 const app = express();
-const PORT = process.env.PORT || 3000;
-
-// Create a connection to Postgres
-const sql = postgres({
-  host: process.env.DATABASE_HOST,
-  database: process.env.DATABASE_NAME,
-  username: process.env.DATABASE_USER,
-  password: process.env.DATABASE_PASSWORD,
-  ssl: "require",
-});
-
-// Test the database connection
-async function connectToDatabase() {
-  try {
-    await sequelize.authenticate();
-    console.log("Connected to PostgreSQL database successfully.");
-    
-    // Sync models with database (optional: { force: true } will drop tables first)
-    await sequelize.sync();
-    console.log("Database models synchronized.");
-  } catch (error) {
-    console.error("Error connecting to PostgreSQL:", error);
-    process.exit(1);
-  }
-}
-connectToDatabase();
-
+app.use(express.json());
 app.use(cors());
-app.use(bodyParser.json());
 
-app.use((req, res, next) => {
-  res.setHeader("Access-Control-Allow-Origin", "*");
-  res.setHeader(
-    "Access-Control-Allow-Headers",
-    "Origin, X-Requested-With, Content-Type, Accept, Authorization",
-  );
-  res.setHeader(
-    "Access-Control-Allow-Methods",
-    "GET, POST, PATCH, DELETE, OPTIONS",
-  );
-  next();
-});
+app.use("/api/auth", authRoutes);
 
-app.listen(PORT, () => {
-  console.log(`Server running on port ${PORT}`);
-});
+const PORT = process.env.PORT || 5000;
+
+(async () => {
+  try {
+    await sequelize.sync(); // Ensures tables are created
+    console.log("Database synchronized.");
+
+    app.listen(PORT, () => console.log(`Server running on port ${PORT}`));
+  } catch (error) {
+    console.error("Error syncing database:", error);
+  }
+})();
