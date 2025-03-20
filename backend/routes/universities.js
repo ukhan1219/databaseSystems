@@ -1,59 +1,29 @@
 var express = require('express');
 var router = express.Router();
 
-
-var mysql = require('mysql');
-var connection = require("express-myconnection");
-
-var connection = mysql.createConnection(
-    {
-      host     : 'localhost',
-      user     : 'root',
-      password : '',
-      database : 'mydb',
-    }
-);
+// Use the centralized database connection
+const pool = require('../config/db');
 
 /* GET users listing. */
-router.get('/', function(req, res, next) {
-
-
+router.get('/', async function(req, res, next) {
   if(req.session.username)
   {
     console.log("User: " + req.session.username + " logged in");
     var queryString = "SELECT * FROM university";
 
-    setTimeout(function()
-    {
-      connection.query(queryString, function(err, rows, fields) 
-      {
-          if (err) 
-          {       
-            throw err;
-            //console.log(rows);
-            res.render('universities',{message: "",unis: rows});
-          }
-            
-          else
-          {
-            //console.log(rows);
-            res.render('universities',{message: "",unis: rows});
-          }
-            
-      });
-    },200);
+    try {
+      const [rows] = await pool.query(queryString);
+      res.render('universities', {message: "", unis: rows});
+    } catch (err) {
+      console.log(err);
+      next(err);
+    }
   }
   else
   {
     console.log("user not logged in");
     res.redirect('/');
   }
-
-  
-
-
-  
-  
 });
 
 module.exports = router;

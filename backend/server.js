@@ -16,6 +16,7 @@ const eventsRouter = require("./routes/events");
 const orgsRouter = require("./routes/orgs");
 const superRouter = require("./routes/super");
 const registerRouter = require("./routes/register");
+const universitiesRouter = require("./routes/universities");
 
 const app = express();
 
@@ -42,6 +43,7 @@ app.use('/api/events', eventsRouter);
 app.use('/api/orgs', orgsRouter);
 app.use('/api/super', superRouter);
 app.use('/api/register', registerRouter);
+app.use('/api/universities', universitiesRouter);
 
 // Handle React routing, return all requests to React app
 if (process.env.NODE_ENV === 'production') {
@@ -50,7 +52,7 @@ if (process.env.NODE_ENV === 'production') {
   });
 }
 
-const PORT = process.env.PORT || 5000;
+const PORT = 5001;
 
 // Connect to database and start server
 app.listen(PORT, async () => {

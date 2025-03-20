@@ -1,130 +1,102 @@
 var express = require('express');
 var router = express.Router();
 
-var mysql = require('mysql');
-var connection = require("express-myconnection");
+// Use the centralized database connection
+const pool = require('../config/db');
 
-var connection = mysql.createConnection(
-    {
-      host     : 'localhost',
-      user     : 'root',
-      password : '',
-      database : 'mydb',
-    }
-);
-
-/* GET users listing. */
-router.get('/', function(req, res, next) {
+/* GET all RSOs for user's university */
+router.get('/', async function(req, res, next) {
 	
   if(req.session.username)
   {
-
     console.log("User: " + req.session.username + " logged in");
-    var queryString = "SELECT * FROM rso AS r1 WHERE (r1.Approved = 1) AND (     (SELECT University_Name FROM enrolled WHERE User_ID='"+req.session.username+"')=(SELECT University_University_Name FROM University_has_RSO WHERE r1.RSO_ID = RSO_RSO_ID)  );";
+    
+    try {
+      // Get user's university
+      const userQuery = "SELECT university_id FROM users WHERE username = ?";
+      const [userResult] = await pool.query(userQuery, [req.session.username]);
+      
+      if (!userResult.length) {
+        return res.status(404).json({
+          success: false,
+          message: "User not found"
+        });
+      }
+      
+      const universityId = userResult[0].university_id;
+      
+      // Get all active RSOs in user's university
+      const queryString = `
+        SELECT r.* FROM rso r
+        JOIN users u ON r.admin_user_id = u.user_id
+        WHERE r.is_active = TRUE AND u.university_id = ?
+      `;
 
-    setTimeout(function()
-    {
-
-      connection.query(queryString, function(err, rows, fields) 
-      {
-          if (err) 
-          {      	
-          	throw err;
-            //console.log(rows);
-            res.render('orgs',{orgs: rows,message: ""});
-          }
-          	
-          else
-          {
-            //console.log(rows);
-            res.render('orgs',{orgs: rows,message: ""});
-          }        	
-      });
-    },200);
+      const [rows] = await pool.query(queryString, [universityId]);
+      res.render('orgs', {orgs: rows, message: ""});
+    } catch (err) {
+      console.log(err);
+      next(err);
+    }
   }
   else
   {
     console.log("user not logged in");
     res.redirect('/');
   }
-  
 });
 
-
-router.get('/:rsoid', function(req, res, next) {
-
-  console.log(req.url);
-
-  var str = req.url
-
-  var rsoID = str.replace("/","");
-
-  var joinStatus = 1;
-
-  console.log(rsoID);
-
-
+/* GET specific RSO details */
+router.get('/:rsoid', async function(req, res, next) {
+  const rsoId = req.params.rsoid;
+  console.log("Viewing RSO ID:", rsoId);
 
   if(req.session.username)
   {
-    var queryMember = "SELECT * FROM member_of WHERE RSO_ID='"+rsoID+"'";
-    connection.query(queryMember, function(err, rows, fields) 
-      {
-        console.log(rows);
-          if (err) 
-          { 
-             console.log(err);
-          }
-          else
-          {
-            for(var i = 0;i < rows.length; i++)
-            {
-              if(rows[i].User_ID == req.session.username)
-              {
-                console.log("already a member");
-                joinStatus = 0;
+    try {
+      // Check if user is a member of this RSO
+      const membershipQuery = `
+        SELECT rm.* FROM rso_membership rm
+        JOIN users u ON rm.user_id = u.user_id
+        WHERE rm.rso_id = ? AND u.username = ?
+      `;
+      const [memberRows] = await pool.query(membershipQuery, [rsoId, req.session.username]);
+      
+      const joinStatus = memberRows.length > 0 ? 0 : 1; // 0 = already member, 1 = can join
+      
+      if(joinStatus === 1) {
+        console.log("User can join this RSO");
+      } else {
+        console.log("User is already a member");
+      }
+        
+      // Get RSO details
+      const rsoQuery = `
+        SELECT r.*, u.username as admin_username, univ.name as university_name
+        FROM rso r
+        JOIN users u ON r.admin_user_id = u.user_id
+        JOIN university univ ON u.university_id = univ.university_id
+        WHERE r.rso_id = ?
+      `;
 
-              }
-            }  
-
-            if(joinStatus == 1)            
-              console.log("join rso");  
-              
-          }
-        });
-    
-    console.log("User: " + req.session.username + " logged in");
-    var queryString = "SELECT * FROM rso WHERE RSO_ID='"+rsoID+"'";
-
-    setTimeout(function()
-    {
-
-      connection.query(queryString, function(err, rows, fields) 
-      {
-        console.log(rows);
-          if (err) 
-          {       
-            throw err;
-            //console.log(rows);
-            res.render('viewRSO',{orgs: rows, joinStatus:joinStatus});          
-          }
-            
-          else
-          {
-            //console.log(rows);
-            res.render('viewRSO',{orgs: rows, joinStatus:joinStatus});          
-          }          
-      });
-    },200);
+      const [rsoRows] = await pool.query(rsoQuery, [rsoId]);
+      
+      if (!rsoRows.length) {
+        return res.status(404).send("RSO not found");
+      }
+      
+      console.log(rsoRows);
+      res.render('viewRSO', {orgs: rsoRows, joinStatus: joinStatus});
+    } catch (err) {
+      console.log(err);
+      next(err);
+    }
   }
   else
   {
     console.log("user not logged in");
     res.redirect('/');
   }
-
-  
-  
 });
 
 module.exports = router;
