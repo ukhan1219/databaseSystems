@@ -1,24 +1,13 @@
-const { Sequelize } = require("sequelize");
-require("dotenv").config();
+const mysql = require('mysql2/promise');
 
-const sequelize = new Sequelize(process.env.PSQL, {
-  dialect: "postgres",
-  dialectOptions: {
-    ssl: {
-      require: true,
-      rejectUnauthorized: false, // Necessary for cloud-hosted PostgreSQL
-    },
-  },
-  logging: false, // Set to true for debugging SQL queries
+const pool = mysql.createPool({
+  host: 'localhost',
+  user: 'dbuser',
+  password: 'dbpassword',
+  database: 'event_system',
+  waitForConnections: true,
+  connectionLimit: 10,
+  queueLimit: 0
 });
 
-(async () => {
-  try {
-    await sequelize.authenticate();
-    console.log("Connected to PostgreSQL using Sequelize.");
-  } catch (error) {
-    console.error("Unable to connect to the database:", error);
-  }
-})();
-
-module.exports = sequelize;
+module.exports = pool;

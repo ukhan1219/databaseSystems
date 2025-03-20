@@ -1,0 +1,9 @@
+to run the database for the first time:
+use ./startDb.sh
+to make migrations to the db:
+use ./migration.sh
+
+to access the database, type this in terminal:
+docker exec -it event_system_db mariadb -udbuser -pdbpassword event_system      
+
+this will then allow you to query anything in the database
