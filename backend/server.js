@@ -9,9 +9,9 @@ require("dotenv").config();
 const mysql = require('mysql');
 const connection = mysql.createConnection({
   host: 'localhost',
-  user: 'root',
-  password: '',
-  database: 'mydb',
+  user: 'dbuser',
+  password: 'dbpassword',
+  database: 'event_system',
 });
 
 // Route imports
