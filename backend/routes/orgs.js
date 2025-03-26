@@ -63,8 +63,8 @@ router.post('/', async function(req, res, next) {
   }
 
   try {
-    // Get user id
-    const userQuery = "SELECT user_id FROM users WHERE username = ?";
+    // Get user id and university
+    const userQuery = "SELECT user_id, university_id FROM users WHERE username = ?";
     const [userResult] = await pool.query(userQuery, [req.session.username]);
     
     if (!userResult.length) {
@@ -75,7 +75,8 @@ router.post('/', async function(req, res, next) {
     }
     
     const userId = userResult[0].user_id;
-    const { rso_name, description } = req.body;
+    const userUniversityId = userResult[0].university_id;
+    const { rso_name, description, initial_members } = req.body;
     
     // Check for missing required fields
     if (!rso_name) {
@@ -85,7 +86,7 @@ router.post('/', async function(req, res, next) {
       });
     }
     
-    // Insert new RSO (initially inactive until approved)
+    // Insert new RSO (initially inactive until it has 5 members and is approved)
     const insertRSO = `
       INSERT INTO rso 
       (rso_name, description, admin_user_id, is_active) 
@@ -109,11 +110,50 @@ router.post('/', async function(req, res, next) {
     
     await pool.query(addMember, [userId, rsoId]);
     
+    // If initial members are provided, add them too
+    let memberCount = 1; // Start with 1 (the creator)
+    
+    if (initial_members && Array.isArray(initial_members) && initial_members.length > 0) {
+      // Validate all provided members exist and are from the same university
+      const memberListStr = Array(initial_members.length).fill('?').join(',');
+      const memberQuery = `
+        SELECT user_id, university_id, username FROM users 
+        WHERE username IN (${memberListStr})
+      `;
+      
+      const [membersResult] = await pool.query(memberQuery, initial_members);
+      
+      // Filter out members from different universities
+      const validMembers = membersResult.filter(m => m.university_id === userUniversityId);
+      
+      if (validMembers.length > 0) {
+        // Add valid members to the RSO
+        const membersInsertValues = validMembers.map(m => [m.user_id, rsoId]);
+        const addMembersQuery = `
+          INSERT INTO rso_membership 
+          (user_id, rso_id) 
+          VALUES ?
+        `;
+        
+        await pool.query(addMembersQuery, [membersInsertValues]);
+        memberCount += validMembers.length;
+      }
+    }
+    
+    let message = "RSO created successfully. It will remain inactive until it has 5 members and is approved by an administrator.";
+    
+    // If already 5+ members, update the message
+    if (memberCount >= 5) {
+      message = "RSO created successfully with 5+ members. Awaiting administrator approval.";
+    }
+    
     // Return success
     return res.status(201).json({
       success: true,
-      message: "RSO created successfully and pending approval",
-      rsoId: rsoId
+      message: message,
+      rsoId: rsoId,
+      memberCount: memberCount,
+      isActive: false
     });
     
   } catch (err) {
@@ -133,6 +173,20 @@ router.get('/:rsoid', async function(req, res, next) {
   if(req.session.username)
   {
     try {
+      // Get user information
+      const userQuery = "SELECT user_id, university_id FROM users WHERE username = ?";
+      const [userResult] = await pool.query(userQuery, [req.session.username]);
+      
+      if (!userResult.length) {
+        return res.status(404).json({
+          success: false,
+          message: "User not found"
+        });
+      }
+      
+      const userId = userResult[0].user_id;
+      const userUniversityId = userResult[0].university_id;
+      
       // Check if user is a member of this RSO
       const membershipQuery = `
         SELECT rm.* FROM rso_membership rm
@@ -141,7 +195,11 @@ router.get('/:rsoid', async function(req, res, next) {
       `;
       const [memberRows] = await pool.query(membershipQuery, [rsoId, req.session.username]);
       
-      const joinStatus = memberRows.length > 0 ? 0 : 1; // 0 = already member, 1 = can join
+      // 0 = already member, 1 = can join
+      const joinStatus = memberRows.length > 0 ? 0 : 1; 
+      
+      const joinStatusText = joinStatus === 0 ? "Member" : "Can Join";
+      const isMember = joinStatus === 0;
       
       if(joinStatus === 1) {
         console.log("User can join this RSO");
@@ -149,9 +207,11 @@ router.get('/:rsoid', async function(req, res, next) {
         console.log("User is already a member");
       }
         
-      // Get RSO details
+      // Get RSO details with extended information
       const rsoQuery = `
-        SELECT r.*, u.username as admin_username, univ.name as university_name
+        SELECT r.*, u.username as admin_username, u.email as admin_email, 
+               u.role as admin_role, univ.name as university_name,
+               univ.university_id
         FROM rso r
         JOIN users u ON r.admin_user_id = u.user_id
         JOIN university univ ON u.university_id = univ.university_id
@@ -164,11 +224,43 @@ router.get('/:rsoid', async function(req, res, next) {
         return res.status(404).send("RSO not found");
       }
       
+      // Get member count
+      const countQuery = "SELECT COUNT(*) as member_count FROM rso_membership WHERE rso_id = ?";
+      const [countResult] = await pool.query(countQuery, [rsoId]);
+      const memberCount = countResult[0].member_count;
+      
+      // Get upcoming events for this RSO
+      const eventsQuery = `
+        SELECT event_id, event_name, event_date, event_time
+        FROM event
+        WHERE rso_id = ? AND event_date >= CURDATE()
+        ORDER BY event_date ASC, event_time ASC
+        LIMIT 3
+      `;
+      const [eventsResult] = await pool.query(eventsQuery, [rsoId]);
+      
+      // Check if user is the RSO admin
+      const isAdmin = rsoRows[0].admin_user_id === userId;
+      
+      // Check if user can join (from same university and not already a member)
+      const canJoin = joinStatus === 1 && rsoRows[0].university_id === userUniversityId;
+      
       console.log(rsoRows);
       res.status(200).json({
         success: true,
-        rso: rsoRows[0],
-        joinStatus: joinStatus
+        rso: {
+          ...rsoRows[0],
+          member_count: memberCount,
+          has_enough_members: memberCount >= 5
+        },
+        membership: {
+          isMember: isMember,
+          isAdmin: isAdmin,
+          joinStatus: joinStatus,
+          joinStatusText: joinStatusText,
+          canJoin: canJoin
+        },
+        upcoming_events: eventsResult
       });
           } catch (err) {
       console.log(err);
@@ -194,8 +286,8 @@ router.post('/:rsoid/join', async function(req, res, next) {
   }
   
   try {
-    // Get user ID
-    const userQuery = "SELECT user_id FROM users WHERE username = ?";
+    // Get user ID and university
+    const userQuery = "SELECT user_id, university_id FROM users WHERE username = ?";
     const [userResult] = await pool.query(userQuery, [req.session.username]);
     
     if (!userResult.length) {
@@ -206,15 +298,29 @@ router.post('/:rsoid/join', async function(req, res, next) {
     }
     
     const userId = userResult[0].user_id;
+    const userUniversityId = userResult[0].university_id;
     
-    // Check if RSO exists and is active
-    const rsoQuery = "SELECT * FROM rso WHERE rso_id = ? AND is_active = TRUE";
+    // Check if RSO exists
+    const rsoQuery = `
+      SELECT r.*, u.university_id 
+      FROM rso r
+      JOIN users u ON r.admin_user_id = u.user_id
+      WHERE r.rso_id = ?
+    `;
     const [rsoResult] = await pool.query(rsoQuery, [rsoId]);
     
     if (!rsoResult.length) {
       return res.status(404).json({
         success: false,
-        message: "RSO not found or not active"
+        message: "RSO not found"
+      });
+    }
+    
+    // Check if user is from the same university as the RSO admin
+    if (rsoResult[0].university_id !== userUniversityId) {
+      return res.status(403).json({
+        success: false,
+        message: "You can only join RSOs from your own university"
       });
     }
     
@@ -233,9 +339,23 @@ router.post('/:rsoid/join', async function(req, res, next) {
     const joinQuery = "INSERT INTO rso_membership (user_id, rso_id) VALUES (?, ?)";
     await pool.query(joinQuery, [userId, rsoId]);
     
+    // Check total membership count after adding the new member
+    const countQuery = "SELECT COUNT(*) as member_count FROM rso_membership WHERE rso_id = ?";
+    const [countResult] = await pool.query(countQuery, [rsoId]);
+    const memberCount = countResult[0].member_count;
+    
+    let message = "Successfully joined RSO";
+    
+    // Check if RSO now has 5+ members but is not yet active
+    if (memberCount >= 5 && !rsoResult[0].is_active) {
+      message = "Successfully joined RSO. The RSO now has 5+ members and is awaiting administrator approval.";
+    }
+    
     return res.status(200).json({
       success: true,
-      message: "Successfully joined RSO"
+      message: message,
+      memberCount: memberCount,
+      isActive: rsoResult[0].is_active
     });
     
   } catch (err) {
@@ -270,20 +390,42 @@ router.get('/:rsoid/members', async function(req, res, next) {
       });
     }
     
-    // Get all members
+    // Get RSO information
+    const rsoData = rsoResult[0];
+    const adminUserId = rsoData.admin_user_id;
+    
+    // Get all members with more detailed information
     const membersQuery = `
-      SELECT u.user_id, u.username, u.email, rm.joined_date 
+      SELECT u.user_id, u.username, u.email, u.role as user_role, rm.joined_date,
+             (u.user_id = ?) as is_admin
       FROM rso_membership rm
       JOIN users u ON rm.user_id = u.user_id
       WHERE rm.rso_id = ?
-      ORDER BY rm.joined_date ASC
+      ORDER BY is_admin DESC, rm.joined_date ASC
     `;
     
-    const [membersResult] = await pool.query(membersQuery, [rsoId]);
+    const [membersResult] = await pool.query(membersQuery, [adminUserId, rsoId]);
+    
+    // Determine membership status for each member
+    const enhancedMembers = membersResult.map(member => {
+      return {
+        ...member,
+        is_admin: !!member.is_admin,
+        rso_role: member.is_admin ? 'admin' : 'member',
+        membership_duration: calculateMembershipDuration(member.joined_date)
+      };
+    });
     
     return res.status(200).json({
       success: true,
-      members: membersResult
+      rso: {
+        rso_id: rsoData.rso_id,
+        rso_name: rsoData.rso_name,
+        description: rsoData.description,
+        is_active: rsoData.is_active,
+        total_members: enhancedMembers.length
+      },
+      members: enhancedMembers
     });
     
   } catch (err) {
@@ -294,6 +436,25 @@ router.get('/:rsoid/members', async function(req, res, next) {
     });
   }
 });
+
+// Helper function to calculate membership duration
+function calculateMembershipDuration(joinedDate) {
+  const now = new Date();
+  const joined = new Date(joinedDate);
+  const diffTime = Math.abs(now - joined);
+  const diffDays = Math.floor(diffTime / (1000 * 60 * 60 * 24));
+  
+  if (diffDays < 30) {
+    return `${diffDays} days`;
+  } else if (diffDays < 365) {
+    const months = Math.floor(diffDays / 30);
+    return `${months} month${months > 1 ? 's' : ''}`;
+  } else {
+    const years = Math.floor(diffDays / 365);
+    const remainingMonths = Math.floor((diffDays % 365) / 30);
+    return `${years} year${years > 1 ? 's' : ''}${remainingMonths ? ` and ${remainingMonths} month${remainingMonths > 1 ? 's' : ''}` : ''}`;
+  }
+}
 
 /* PUT update RSO details */
 router.put('/:rsoid', async function(req, res, next) {

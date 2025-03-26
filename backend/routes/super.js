@@ -66,6 +66,30 @@ router.get('/RSO/:rsoid', async function(req, res, next) {
       if(superAdminResult.length > 0) {
         console.log("User: " + req.session.username + " is super_admin");
         
+        // Check if RSO exists
+        const rsoQuery = "SELECT * FROM rso WHERE rso_id = ?";
+        const [rsoResult] = await pool.query(rsoQuery, [rsoId]);
+        
+        if (!rsoResult.length) {
+          return res.status(404).json({
+            success: false,
+            message: "RSO not found"
+          });
+        }
+        
+        // Check if RSO has at least 5 members
+        const memberCountQuery = "SELECT COUNT(*) as member_count FROM rso_membership WHERE rso_id = ?";
+        const [countResult] = await pool.query(memberCountQuery, [rsoId]);
+        const memberCount = countResult[0].member_count;
+        
+        if (memberCount < 5) {
+          return res.status(400).json({
+            success: false,
+            message: "RSO needs at least 5 members to be activated",
+            memberCount: memberCount
+          });
+        }
+        
         // Approve RSO
         const approveQuery = "UPDATE rso SET is_active = TRUE WHERE rso_id = ?";
         await pool.query(approveQuery, [rsoId]);
@@ -81,31 +105,39 @@ router.get('/RSO/:rsoid', async function(req, res, next) {
         }
         
         console.log("RSO approved and admin role updated");
+        
+        return res.status(200).json({
+          success: true,
+          message: "RSO approved and admin role updated",
+          memberCount: memberCount
+        });
       } else {
         console.log("User is not a super admin");
-        return res.status(403).send("Access denied");
+        return res.status(403).json({
+          success: false,
+          message: "Access denied: Only super administrators can approve RSOs"
+        });
       }
     } catch (err) {
       console.log(err);
-      next(err);
+      return res.status(500).json({
+        success: false,
+        message: "Failed to approve RSO: " + err.message
+      });
     }
-    res.status(200).json({
-      success: true,
-      message: "RSO approved and admin role updated"
-    });
-      }
+  }
   else
   {
     console.log("user not logged in");
-    res.status(401).json({
+    return res.status(401).json({
       success: false,
       message: "Not logged in"
     });
-      }
+  }
 });
 
 /* Approve Event */
-router.get('/Event/:eventid', async function(req, res, next) {
+router.get('/Event/:eventid/approve', async function(req, res, next) {
   const eventId = req.params.eventid;
   console.log("Approving Event ID:", eventId);
 
@@ -119,32 +151,111 @@ router.get('/Event/:eventid', async function(req, res, next) {
       if(superAdminResult.length > 0) {
         console.log("User: " + req.session.username + " is super_admin");
         
+        // Check if event exists and needs approval
+        const eventQuery = "SELECT * FROM event WHERE event_id = ? AND approved_by IS NULL";
+        const [eventResult] = await pool.query(eventQuery, [eventId]);
+        
+        if (!eventResult.length) {
+          return res.status(404).json({
+            success: false,
+            message: "Event not found or already processed"
+          });
+        }
+        
         // Approve event by setting the approved_by field to the super admin's user_id
         const approveQuery = "UPDATE event SET approved_by = ? WHERE event_id = ?";
         await pool.query(approveQuery, [superAdminResult[0].user_id, eventId]);
         
         console.log("Event approved");
+        
+        return res.status(200).json({
+          success: true,
+          message: "Event approved"
+        });
       } else {
         console.log("User is not a super admin");
-        return res.status(403).send("Access denied");
+        return res.status(403).json({
+          success: false,
+          message: "Access denied: Only super administrators can approve events"
+        });
       }
     } catch (err) {
       console.log(err);
-      next(err);
+      return res.status(500).json({
+        success: false,
+        message: "Failed to approve event: " + err.message
+      });
     }
-    res.status(200).json({
-      success: true,
-      message: "Event approved"
-    });
-      }
+  }
   else
   {
     console.log("user not logged in");
-    res.status(401).json({
+    return res.status(401).json({
       success: false,
       message: "Not logged in"
     });
+  }
+});
+
+/* Reject Event */
+router.get('/Event/:eventid/reject', async function(req, res, next) {
+  const eventId = req.params.eventid;
+  console.log("Rejecting Event ID:", eventId);
+
+  if(req.session.username)
+  {
+    try {
+      // Verify user is a super_admin
+      const superAdminCheck = "SELECT user_id FROM users WHERE username = ? AND role = 'super_admin'";
+      const [superAdminResult] = await pool.query(superAdminCheck, [req.session.username]);
+
+      if(superAdminResult.length > 0) {
+        console.log("User: " + req.session.username + " is super_admin");
+        
+        // Check if event exists and needs approval
+        const eventQuery = "SELECT * FROM event WHERE event_id = ? AND approved_by IS NULL";
+        const [eventResult] = await pool.query(eventQuery, [eventId]);
+        
+        if (!eventResult.length) {
+          return res.status(404).json({
+            success: false,
+            message: "Event not found or already processed"
+          });
+        }
+        
+        // Delete the rejected event
+        const deleteQuery = "DELETE FROM event WHERE event_id = ?";
+        await pool.query(deleteQuery, [eventId]);
+        
+        console.log("Event rejected and removed");
+        
+        return res.status(200).json({
+          success: true,
+          message: "Event rejected and removed"
+        });
+      } else {
+        console.log("User is not a super admin");
+        return res.status(403).json({
+          success: false,
+          message: "Access denied: Only super administrators can reject events"
+        });
       }
+    } catch (err) {
+      console.log(err);
+      return res.status(500).json({
+        success: false,
+        message: "Failed to reject event: " + err.message
+      });
+    }
+  }
+  else
+  {
+    console.log("user not logged in");
+    return res.status(401).json({
+      success: false,
+      message: "Not logged in"
+    });
+  }
 });
 
 module.exports = router;
