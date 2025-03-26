@@ -17,8 +17,11 @@ router.get('/', async function(req, res, next) {
 
     try {
       const [rows] = await pool.query(queryString);
-      res.render('universities', {message: "", unis: rows});
-    } catch (err) {
+      res.status(200).json({
+        success: true,
+        universities: rows
+      });
+          } catch (err) {
       console.log(err);
       next(err);
     }

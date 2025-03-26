@@ -30,8 +30,13 @@ router.get('/', async function(req, res, next) {
       const [eventRows] = await pool.query(eventQuery);
       const [rsoRows] = await pool.query(rsoQuery);
       
-      res.render('super', {message: "", orgs: rsoRows, events: eventRows});
-    } catch (err) {
+      res.status(200).json({
+        success: true,
+        message: "",
+        orgs: rsoRows,
+        events: eventRows
+      });
+          } catch (err) {
       console.log(err);
       next(err);
     }
@@ -39,8 +44,11 @@ router.get('/', async function(req, res, next) {
   else
   {
     console.log("user not logged in");
-    res.redirect('/');
-  }
+    res.status(401).json({
+      success: false,
+      message: "Not logged in"
+    });
+      }
 });
 
 /* Approve RSO */
@@ -81,13 +89,19 @@ router.get('/RSO/:rsoid', async function(req, res, next) {
       console.log(err);
       next(err);
     }
-    res.redirect('/super');
-  }
+    res.status(200).json({
+      success: true,
+      message: "RSO approved and admin role updated"
+    });
+      }
   else
   {
     console.log("user not logged in");
-    res.redirect('/');
-  }
+    res.status(401).json({
+      success: false,
+      message: "Not logged in"
+    });
+      }
 });
 
 /* Approve Event */
@@ -118,13 +132,19 @@ router.get('/Event/:eventid', async function(req, res, next) {
       console.log(err);
       next(err);
     }
-    res.redirect('/super');
-  }
+    res.status(200).json({
+      success: true,
+      message: "Event approved"
+    });
+      }
   else
   {
     console.log("user not logged in");
-    res.redirect('/');
-  }
+    res.status(401).json({
+      success: false,
+      message: "Not logged in"
+    });
+      }
 });
 
 module.exports = router;

@@ -10,8 +10,11 @@ router.get('/', async function(req, res, next) {
   try {
     var queryString = "SELECT university_id, name FROM university";
     const [rows] = await pool.query(queryString);
-    res.render("register", {message: "", uni: rows});
-  } catch (err) {
+    res.status(200).json({
+      success: true,
+      universities: rows
+    });
+      } catch (err) {
     console.log(err);
     next(err);
   }
@@ -20,7 +23,7 @@ router.get('/', async function(req, res, next) {
 /* POST register new user */
 router.post('/', async function(req, res, next) {
   try {
-    const { username, password, email, university_id } = req.body;
+    const { username, password, email, university_id, role } = req.body;
     
     // Check for missing required fields
     if (!username || !password || !email || !university_id) {
@@ -41,19 +44,27 @@ router.post('/', async function(req, res, next) {
       });
     }
     
-    // Insert new user - with role defaulting to 'student'
-    const insertUser = "INSERT INTO users (username, password_hash, email, university_id) VALUES (?, ?, ?, ?)";
-    const result = await pool.query(insertUser, [username, password, email, university_id]);
+    // Default role to 'student' if not provided or invalid
+    let userRole = 'student';
+    if (role && ['student', 'admin', 'super_admin'].includes(role)) {
+      userRole = role;
+    }
     
-    // Set session with user ID
-    req.session.userId = result.insertId;
+    // Insert new user with the specified or default role
+    const insertUser = "INSERT INTO users (username, password_hash, email, university_id, role) VALUES (?, ?, ?, ?, ?)";
+    const result = await pool.query(insertUser, [username, password, email, university_id, userRole]);
+    
+    // Set session with user ID and role
+    req.session.userId = result[0].insertId;
     req.session.username = username;
+    req.session.role = userRole;
     
     // Return success
     return res.status(201).json({
       success: true,
       message: "User registered successfully",
-      userId: result.insertId
+      userId: result[0].insertId,
+      role: userRole
     });
     
   } catch (err) {

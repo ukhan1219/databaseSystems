@@ -38,12 +38,27 @@ if (process.env.NODE_ENV === 'production') {
 }
 
 // API Routes
-app.use('/api', indexRouter);
+app.use('/', indexRouter);
 app.use('/api/events', eventsRouter);
-app.use('/api/orgs', orgsRouter);
+app.use('/api/rsos', orgsRouter);  // Map to /api/rsos for RESTful naming
 app.use('/api/super', superRouter);
 app.use('/api/register', registerRouter);
 app.use('/api/universities', universitiesRouter);
+
+// Auth routes (using index router that has login/logout)
+app.use('/api/auth/register', registerRouter);
+app.use('/api/auth/login', (req, res, next) => {
+  req.url = '/login';
+  indexRouter(req, res, next);
+});
+app.use('/api/auth/logout', (req, res, next) => {
+  req.url = '/logout';
+  indexRouter(req, res, next);
+});
+app.use('/api/auth/me', (req, res, next) => {
+  req.url = '/me';
+  indexRouter(req, res, next);
+});
 
 // Handle React routing, return all requests to React app
 if (process.env.NODE_ENV === 'production') {
