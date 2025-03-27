@@ -74,6 +74,7 @@ router.get('/', async function(req, res, next) {
          queryString = `
            SELECT * FROM event 
            WHERE event_type = 'public' AND approved_by IS NOT NULL
+           AND university_id = ?
          `;
         console.log("filter:public");
       }
@@ -87,7 +88,7 @@ router.get('/', async function(req, res, next) {
       } else if(req.query.selection === "rso") {
         [erows] = await pool.query(queryString, [req.session.username]);
       } else if(req.query.selection === "public") {
-        [erows] = await pool.query(queryString);
+        [erows] = await pool.query(queryString, [userUniversityId]);
       } else {
         [erows] = await pool.query(queryString, [req.session.username, userUniversityId]);
       }
@@ -271,8 +272,8 @@ router.post('/:eventid/comment', async function(req, res, next) {
   }
   
   try {
-    // Get user id
-    const userQuery = "SELECT user_id FROM users WHERE username = ?";
+    // Get user id and university
+    const userQuery = "SELECT user_id, university_id FROM users WHERE username = ?";
     const [userResult] = await pool.query(userQuery, [req.session.username]);
     
     if (!userResult.length) {
@@ -283,6 +284,7 @@ router.post('/:eventid/comment', async function(req, res, next) {
     }
     
     const userId = userResult[0].user_id;
+    const userUniversityId = userResult[0].university_id;
     const { comment_text } = req.body;
     
     // Check if comment text is provided
@@ -293,14 +295,24 @@ router.post('/:eventid/comment', async function(req, res, next) {
       });
     }
     
-    // Check if event exists
-    const eventQuery = "SELECT * FROM event WHERE event_id = ?";
-    const [eventResult] = await pool.query(eventQuery, [eventId]);
+    // Check if event exists and user has access to it
+    const eventQuery = `
+      SELECT DISTINCT e.* FROM event e 
+      LEFT JOIN rso_membership rm ON e.rso_id = rm.rso_id AND rm.user_id = ?
+      WHERE 
+        e.event_id = ? AND (
+          (e.approved_by IS NOT NULL AND e.event_type = 'public' AND e.university_id = ?) OR 
+          (e.university_id = ? AND e.event_type = 'private') OR 
+          (rm.user_id IS NOT NULL AND e.event_type = 'rso')
+        )
+    `;
+    
+    const [eventResult] = await pool.query(eventQuery, [userId, eventId, userUniversityId, userUniversityId]);
     
     if (!eventResult.length) {
-      return res.status(404).json({
+      return res.status(403).json({
         success: false,
-        message: "Event not found"
+        message: "Event not found or you don't have permission to comment on it"
       });
     }
     
@@ -346,8 +358,8 @@ router.post('/:eventid/rate', async function(req, res, next) {
   }
   
   try {
-    // Get user id
-    const userQuery = "SELECT user_id FROM users WHERE username = ?";
+    // Get user id and university
+    const userQuery = "SELECT user_id, university_id FROM users WHERE username = ?";
     const [userResult] = await pool.query(userQuery, [req.session.username]);
     
     if (!userResult.length) {
@@ -358,6 +370,7 @@ router.post('/:eventid/rate', async function(req, res, next) {
     }
     
     const userId = userResult[0].user_id;
+    const userUniversityId = userResult[0].university_id;
     const { rating_value } = req.body;
     
     // Check if rating is provided and valid
@@ -368,14 +381,24 @@ router.post('/:eventid/rate', async function(req, res, next) {
       });
     }
     
-    // Check if event exists
-    const eventQuery = "SELECT * FROM event WHERE event_id = ?";
-    const [eventResult] = await pool.query(eventQuery, [eventId]);
+    // Check if event exists and user has access to it
+    const eventQuery = `
+      SELECT DISTINCT e.* FROM event e 
+      LEFT JOIN rso_membership rm ON e.rso_id = rm.rso_id AND rm.user_id = ?
+      WHERE 
+        e.event_id = ? AND (
+          (e.approved_by IS NOT NULL AND e.event_type = 'public' AND e.university_id = ?) OR 
+          (e.university_id = ? AND e.event_type = 'private') OR 
+          (rm.user_id IS NOT NULL AND e.event_type = 'rso')
+        )
+    `;
+    
+    const [eventResult] = await pool.query(eventQuery, [userId, eventId, userUniversityId, userUniversityId]);
     
     if (!eventResult.length) {
-      return res.status(404).json({
+      return res.status(403).json({
         success: false,
-        message: "Event not found"
+        message: "Event not found or you don't have permission to rate it"
       });
     }
     
@@ -422,6 +445,39 @@ router.get('/:eventid', async function(req, res, next) {
     console.log("User: " + req.session.username + " logged in");
     
     try {
+      // Get user's university
+      const getUserQuery = "SELECT university_id FROM users WHERE username = ?";
+      const [userResult] = await pool.query(getUserQuery, [req.session.username]);
+      
+      if (!userResult.length) {
+        return res.status(404).send("User not found");
+      }
+      
+      const userUniversityId = userResult[0].university_id;
+      
+      // Check if event exists and user has access based on university
+      const eventAccessQuery = `
+        SELECT DISTINCT e.*, u.name as university_name 
+        FROM event e
+        LEFT JOIN university u ON e.university_id = u.university_id
+        LEFT JOIN rso_membership rm ON e.rso_id = rm.rso_id AND rm.user_id = (SELECT user_id FROM users WHERE username = ?)
+        WHERE 
+          e.event_id = ? AND (
+            (e.approved_by IS NOT NULL AND e.event_type = 'public' AND e.university_id = ?) OR 
+            (e.university_id = ? AND e.event_type = 'private') OR 
+            (rm.user_id IS NOT NULL AND e.event_type = 'rso')
+          )
+      `;
+      
+      const [eventResult] = await pool.query(eventAccessQuery, [req.session.username, eventId, userUniversityId, userUniversityId]);
+      
+      if (!eventResult.length) {
+        return res.status(403).json({
+          success: false,
+          message: "You don't have access to this event or the event doesn't exist"
+        });
+      }
+      
       const queryComments = `
         SELECT c.*, u.username 
         FROM comment c
@@ -433,25 +489,12 @@ router.get('/:eventid', async function(req, res, next) {
       
       console.log("Comments: " + JSON.stringify(comments));
       
-      const queryEvent = `
-        SELECT e.*, u.name as university_name 
-        FROM event e
-        LEFT JOIN university u ON e.university_id = u.university_id
-        WHERE e.event_id = ?
-      `;
-      const [rows] = await pool.query(queryEvent, [eventId]);
-      
-      if (!rows.length) {
-        return res.status(404).send("Event not found");
-      }
-      
-      console.log(rows);
       res.status(200).json({
         success: true,
-        event: rows[0],
+        event: eventResult[0],
         comments: comments
       });
-          } catch (err) {
+    } catch (err) {
       console.log(err);
       next(err);
     }
@@ -475,20 +518,33 @@ router.get('/:eventid/comments', async function(req, res, next) {
   }
   
   try {
+    // Get user's university
+    const userQuery = "SELECT user_id, university_id FROM users WHERE username = ?";
+    const [userResult] = await pool.query(userQuery, [req.session.username]);
+    
+    if (!userResult.length) {
+      return res.status(404).json({
+        success: false,
+        message: "User not found"
+      });
+    }
+    
+    const userId = userResult[0].user_id;
+    const userUniversityId = userResult[0].university_id;
+    
     // Check if event exists and user has access to it
     const eventAccessQuery = `
       SELECT DISTINCT e.* FROM event e 
-      LEFT JOIN rso_membership rm ON e.rso_id = rm.rso_id AND rm.user_id = (SELECT user_id FROM users WHERE username = ?)
-      JOIN users u ON u.username = ?
+      LEFT JOIN rso_membership rm ON e.rso_id = rm.rso_id AND rm.user_id = ?
       WHERE 
         e.event_id = ? AND (
-          (e.approved_by IS NOT NULL AND e.event_type = 'public') OR 
-          (e.university_id = u.university_id AND e.event_type = 'private') OR 
+          (e.approved_by IS NOT NULL AND e.event_type = 'public' AND e.university_id = ?) OR 
+          (e.university_id = ? AND e.event_type = 'private') OR 
           (rm.user_id IS NOT NULL AND e.event_type = 'rso')
         )
     `;
     
-    const [eventResult] = await pool.query(eventAccessQuery, [req.session.username, req.session.username, eventId]);
+    const [eventResult] = await pool.query(eventAccessQuery, [userId, eventId, userUniversityId, userUniversityId]);
     
     if (!eventResult.length) {
       return res.status(404).json({
@@ -535,32 +591,40 @@ router.get('/:eventid/ratings', async function(req, res, next) {
   }
   
   try {
+    // Get user's university and ID
+    const userQuery = "SELECT user_id, university_id FROM users WHERE username = ?";
+    const [userResult] = await pool.query(userQuery, [req.session.username]);
+    
+    if (!userResult.length) {
+      return res.status(404).json({
+        success: false,
+        message: "User not found"
+      });
+    }
+    
+    const currentUserId = userResult[0].user_id;
+    const userUniversityId = userResult[0].university_id;
+    
     // Check if event exists and user has access to it
     const eventAccessQuery = `
       SELECT DISTINCT e.* FROM event e 
-      LEFT JOIN rso_membership rm ON e.rso_id = rm.rso_id AND rm.user_id = (SELECT user_id FROM users WHERE username = ?)
-      JOIN users u ON u.username = ?
+      LEFT JOIN rso_membership rm ON e.rso_id = rm.rso_id AND rm.user_id = ?
       WHERE 
         e.event_id = ? AND (
-          (e.approved_by IS NOT NULL AND e.event_type = 'public') OR 
-          (e.university_id = u.university_id AND e.event_type = 'private') OR 
+          (e.approved_by IS NOT NULL AND e.event_type = 'public' AND e.university_id = ?) OR 
+          (e.university_id = ? AND e.event_type = 'private') OR 
           (rm.user_id IS NOT NULL AND e.event_type = 'rso')
         )
     `;
     
-    const [eventResult] = await pool.query(eventAccessQuery, [req.session.username, req.session.username, eventId]);
+    const [eventResult] = await pool.query(eventAccessQuery, [currentUserId, eventId, userUniversityId, userUniversityId]);
     
     if (!eventResult.length) {
-      return res.status(404).json({
+      return res.status(403).json({
         success: false,
         message: "Event not found or you don't have access to it"
       });
     }
-    
-    // Get current user's ID
-    const userQuery = "SELECT user_id FROM users WHERE username = ?";
-    const [userResult] = await pool.query(userQuery, [req.session.username]);
-    const currentUserId = userResult[0].user_id;
     
     // Get average rating for the event
     const avgRatingQuery = "SELECT AVG(rating_value) as average_rating FROM rating WHERE event_id = ?";

@@ -79,11 +79,22 @@ router.post('/', async function(req, res, next) {
       pictures || null
     ]);
     
+    const universityId = result[0].insertId;
+    
+    // Update the super admin's university to the one they just created if they don't have one
+    const updateSuperAdmin = `
+      UPDATE users 
+      SET university_id = ? 
+      WHERE username = ? AND role = 'super_admin' AND (university_id IS NULL OR university_id = 0)
+    `;
+    
+    await pool.query(updateSuperAdmin, [universityId, req.session.username]);
+    
     // Return success
     return res.status(201).json({
       success: true,
       message: "University created successfully",
-      universityId: result[0].insertId
+      universityId: universityId
     });
     
   } catch (err) {

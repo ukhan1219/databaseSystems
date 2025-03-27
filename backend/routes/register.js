@@ -25,8 +25,14 @@ router.post('/', async function(req, res, next) {
   try {
     const { username, password, email, university_id, role } = req.body;
     
-    // Check for missing required fields
-    if (!username || !password || !email || !university_id) {
+    // Default role to 'student' if not provided or invalid
+    let userRole = 'student';
+    if (role && ['student', 'admin', 'super_admin'].includes(role)) {
+      userRole = role;
+    }
+    
+    // Check for missing required fields - university_id is optional for super_admin
+    if (!username || !password || !email || (!university_id && userRole !== 'super_admin')) {
       return res.status(400).json({ 
         success: false, 
         message: "Missing required fields" 
@@ -44,15 +50,9 @@ router.post('/', async function(req, res, next) {
       });
     }
     
-    // Default role to 'student' if not provided or invalid
-    let userRole = 'student';
-    if (role && ['student', 'admin', 'super_admin'].includes(role)) {
-      userRole = role;
-    }
-    
     // Insert new user with the specified or default role
     const insertUser = "INSERT INTO users (username, password_hash, email, university_id, role) VALUES (?, ?, ?, ?, ?)";
-    const result = await pool.query(insertUser, [username, password, email, university_id, userRole]);
+    const result = await pool.query(insertUser, [username, password, email, university_id || null, userRole]);
     
     // Set session with user ID and role
     req.session.userId = result[0].insertId;
