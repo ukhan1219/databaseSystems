@@ -81,8 +81,5 @@ app.listen(PORT, async () => {
   } catch (err) {
     console.error('Error connecting to database:', err);
   }
-<<<<<<< HEAD
+
 });
-=======
-});
->>>>>>> origin/main
