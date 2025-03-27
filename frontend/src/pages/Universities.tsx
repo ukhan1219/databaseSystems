@@ -25,23 +25,28 @@ const Universities: React.FC = () => {
   useEffect(() => {
     const fetchUniversities = async () => {
       try {
-        const response = await fetch('http://localhost:8000/api/universities');
-        
+        const response = await fetch('http://localhost:5001/api/universities', {
+          credentials: 'include'
+        });
+  
         if (!response.ok) {
           throw new Error('Failed to fetch universities');
         }
-        
+  
         const data = await response.json();
-        setUniversities(data);
+        const universityList = Array.isArray(data.universities) ? data.universities : [];
+  
+        setUniversities(universityList); // ✅ now you're setting just the array
         setLoading(false);
       } catch (err) {
         setError(err instanceof Error ? err.message : 'An error occurred');
         setLoading(false);
       }
     };
-
+  
     fetchUniversities();
   }, []);
+  
 
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const { name, value } = e.target;
@@ -61,7 +66,7 @@ const Universities: React.FC = () => {
     }
     
     try {
-      const response = await fetch('http://localhost:8000/api/universities', {
+      const response = await fetch('http://localhost:5001/api/universities', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',

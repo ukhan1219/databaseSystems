@@ -6,6 +6,7 @@ import Universities from './pages/Universities'
 import SuperAdmin from './pages/SuperAdmin'
 import Events from './pages/Events'
 import RSOs from './pages/RSOs'
+import LoginPage from './pages/LoginPage'
 
 function App() {
   return (
@@ -18,6 +19,9 @@ function App() {
         <Route path="/rsos" element={<RSOs />} />
         <Route path="/rsos/:id" element={<ViewRSO />} />
         <Route path="/super-admin" element={<SuperAdmin />} />
+        <Route path="/login" element={<LoginPage />} />
+
+        
       </Routes>
     </BrowserRouter>
   )
