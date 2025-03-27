@@ -7,12 +7,8 @@ require("dotenv").config();
 
 // Database connections
 const mysql = require('mysql');
-const connection = mysql.createConnection({
-  host: 'localhost',
-  user: 'root',
-  password: '',
-  database: 'mydb',
-});
+const connection = require('./config/db');
+
 
 // Route imports
 const indexRouter = require("./routes/index");
@@ -57,14 +53,15 @@ if (process.env.NODE_ENV === 'production') {
 const PORT = process.env.PORT || 5000;
 
 // Connect to database and start server
-connection.connect((err) => {
-  if (err) {
-    console.error('Error connecting to database:', err);
-    return;
-  }
-  console.log('Connected to database');
-  
-  app.listen(PORT, () => {
+app.listen(PORT, async () => {
+  try {
+    // Test the connection
+    const conn = await connection.getConnection();
+    console.log('Connected to database');
+    conn.release();
+    
     console.log(`Server running on port ${PORT}`);
-  });
+  } catch (err) {
+    console.error('Error connecting to database:', err);
+  }
 });
