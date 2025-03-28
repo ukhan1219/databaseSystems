@@ -77,4 +77,262 @@
 
 .error {
   color: #dc3545;
+}
+
+.rso-section {
+  margin-bottom: 30px;
+  border: 1px solid #ddd;
+  border-radius: 5px;
+  padding: 20px;
+  background-color: #f9f9f9;
+}
+
+.rso-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 15px;
+  padding-bottom: 10px;
+  border-bottom: 1px solid #eee;
+}
+
+.rso-events {
+  margin-top: 15px;
+}
+
+.rso-actions {
+  display: flex;
+  justify-content: space-between;
+  margin-top: 15px;
+}
+
+.join-button {
+  padding: 8px 16px;
+  background-color: #4caf50;
+  color: white;
+  border: none;
+  border-radius: 4px;
+  cursor: pointer;
+  font-weight: 500;
+}
+
+.join-button:hover {
+  background-color: #388e3c;
+}
+
+.join-button:disabled {
+  background-color: #cccccc;
+  cursor: not-allowed;
+}
+
+.event-card.rso {
+  border-left: 4px solid #ff9800;
+}
+
+.event-type-tag {
+  display: inline-block;
+  padding: 3px 8px;
+  border-radius: 3px;
+  font-size: 0.8rem;
+  font-weight: 500;
+  text-transform: uppercase;
+  margin-bottom: 10px;
+}
+
+.filter-tags {
+  display: flex;
+  gap: 10px;
+  margin: 10px 0 20px;
+}
+
+.filter-tag {
+  padding: 5px 10px;
+  border-radius: 4px;
+  font-size: 0.9rem;
+  color: white;
+}
+
+.filter-tag.public {
+  background-color: #2196f3;
+}
+
+.filter-tag.private {
+  background-color: #9c27b0;
+}
+
+.filter-tag.rso {
+  background-color: #ff9800;
+}
+
+.rsos-divider {
+  height: 1px;
+  background-color: #ddd;
+  margin: 40px 0;
+  position: relative;
+}
+
+.rsos-divider::before {
+  content: 'OR';
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  background-color: #f5f5f5;
+  padding: 0 15px;
+  color: #777;
+  font-size: 0.9rem;
+}
+
+.event-rating {
+  display: flex;
+  align-items: center;
+  margin-bottom: 10px;
+}
+
+.rating-stars {
+  color: #ddd;
+  font-size: 1.2rem;
+  margin-right: 5px;
+}
+
+.star.filled {
+  color: #ffc107;
+}
+
+.rating-value {
+  font-size: 0.9rem;
+  color: #555;
+}
+
+.rsos-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 2rem;
+}
+
+.toggle-view-button {
+  padding: 0.5rem 1rem;
+  background-color: #f8f9fa;
+  border: 1px solid #dee2e6;
+  border-radius: 4px;
+  cursor: pointer;
+  font-weight: 500;
+  transition: all 0.2s ease;
+}
+
+.toggle-view-button:hover {
+  background-color: #e9ecef;
+}
+
+.toggle-view-button.primary {
+  background-color: #4285f4;
+  color: white;
+  border-color: #4285f4;
+}
+
+.toggle-view-button.primary:hover {
+  background-color: #3367d6;
+  border-color: #3367d6;
+}
+
+.no-rsos-message {
+  text-align: center;
+  padding: 2rem;
+  background-color: #f8f9fa;
+  border-radius: 8px;
+  margin: 1rem 0;
+}
+
+.no-rsos-message p {
+  margin-bottom: 1rem;
+  font-size: 1.1rem;
+  color: #495057;
+}
+
+.user-rsos-list {
+  display: flex;
+  flex-direction: column;
+  gap: 2rem;
+}
+
+.rso-badges {
+  display: flex;
+  gap: 0.5rem;
+  margin-bottom: 0.5rem;
+}
+
+.badge {
+  display: inline-block;
+  padding: 0.25rem 0.5rem;
+  border-radius: 4px;
+  font-size: 0.8rem;
+  font-weight: 600;
+}
+
+.admin-badge {
+  background-color: #4285f4;
+  color: white;
+}
+
+.status-badge {
+  background-color: #e9ecef;
+  color: #495057;
+}
+
+.status-badge.active {
+  background-color: #28a745;
+  color: white;
+}
+
+.status-badge.inactive {
+  background-color: #dc3545;
+  color: white;
+}
+
+.rso-details {
+  margin: 1rem 0;
+  padding: 1rem;
+  background-color: #f8f9fa;
+  border-radius: 6px;
+}
+
+.rso-description {
+  margin-bottom: 1rem;
+  white-space: pre-line;
+}
+
+.search-rsos-view {
+  margin-top: 1rem;
+}
+
+.available-rsos-list {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+  gap: 2rem;
+  margin-top: 1.5rem;
+}
+
+.rso-section {
+  border: 1px solid #dee2e6;
+  border-radius: 8px;
+  padding: 1.5rem;
+  margin-bottom: 1.5rem;
+  background-color: white;
+  box-shadow: 0 2px 4px rgba(0,0,0,0.05);
+}
+
+.rso-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  margin-bottom: 1rem;
+  border-bottom: 1px solid #dee2e6;
+  padding-bottom: 1rem;
+}
+
+.rso-header h2 {
+  margin: 0;
+  font-size: 1.5rem;
+  color: #212529;
 } 

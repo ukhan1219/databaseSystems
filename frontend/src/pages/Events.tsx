@@ -1,45 +1,128 @@
 import React, { useState, useEffect } from 'react';
-import { Link } from 'react-router-dom';
+import { Link, useNavigate } from 'react-router-dom';
 import Header from '../components/Header';
 import './Events.css';
 
 interface Event {
-  Event_ID: number;
-  Name: string;
-  Description: string;
-  Time: string;
-  Date: string;
-  Location: string;
+  event_id: number;
+  event_name: string;
+  event_description: string;
+  event_date: string;
+  event_time: string;
+  event_type: 'public' | 'private' | 'rso';
+  event_category: string;
+  location_name: string;
+  contact_phone: string;
+  contact_email: string;
+  is_approved: boolean;
+  university_id: number;
+  avg_rating?: number;
+  university_name?: string;
 }
+
+interface User {
+  user_id: number;
+  university_id: number | null;
+  role: string;
+}
+
+type FilterType = 'all' | 'public' | 'private';
 
 const Events: React.FC = () => {
   const [events, setEvents] = useState<Event[]>([]);
+  const [filteredEvents, setFilteredEvents] = useState<Event[]>([]);
+  const [activeFilter, setActiveFilter] = useState<FilterType>('all');
   const [loading, setLoading] = useState<boolean>(true);
   const [error, setError] = useState<string | null>(null);
+  const [user, setUser] = useState<User | null>(null);
+  const navigate = useNavigate();
 
+  // First fetch the current user
+  useEffect(() => {
+    const fetchUser = async () => {
+      try {
+        const response = await fetch('http://localhost:5001/api/auth/me', {
+          credentials: 'include'
+        });
+        
+        if (!response.ok) {
+          // If not logged in, redirect to login page
+          navigate('/login');
+          return;
+        }
+        
+        const data = await response.json();
+        setUser(data.user);
+      } catch (err) {
+        setError('Failed to authenticate user');
+        navigate('/login');
+      }
+    };
+
+    fetchUser();
+  }, [navigate]);
+
+  // Then fetch events based on the selected filter
   useEffect(() => {
     const fetchEvents = async () => {
+      if (!user) return;
+      
       try {
-        const response = await fetch('http://localhost:8000/api/events');
+        // Fetch events based on the current filter
+        let url = 'http://localhost:5001/api/events';
+        
+        // Add query parameter for filtering if not "all"
+        if (activeFilter !== 'all') {
+          url += `?selection=${activeFilter}`;
+        }
+        
+        const response = await fetch(url, {
+          credentials: 'include'
+        });
         
         if (!response.ok) {
           throw new Error('Failed to fetch events');
         }
         
         const data = await response.json();
-        setEvents(data);
-        setLoading(false);
+        console.log('Fetched events:', data.events);
+        
+        setEvents(data.events || []);
+        setFilteredEvents(data.events || []);
       } catch (err) {
+        console.error('Error fetching events:', err);
         setError(err instanceof Error ? err.message : 'An error occurred');
+      } finally {
         setLoading(false);
       }
     };
 
-    fetchEvents();
-  }, []);
+    if (user) {
+      fetchEvents();
+    }
+  }, [user, activeFilter]);
 
-  if (loading) return <div className="loading">Loading...</div>;
-  if (error) return <div className="error">{error}</div>;
+  const handleFilterClick = (filter: FilterType) => {
+    setActiveFilter(filter);
+    setLoading(true); // Show loading while fetching new filtered events
+  };
+
+  // Check if user is admin or super_admin to conditionally show create event button
+  const canCreateEvents = user && (user.role === 'admin' || user.role === 'super_admin');
+
+  if (loading) return (
+    <>
+      <Header />
+      <div className="loading">Loading events...</div>
+    </>
+  );
+  
+  if (error) return (
+    <>
+      <Header />
+      <div className="error">{error}</div>
+    </>
+  );
 
   return (
     <>
@@ -47,20 +130,75 @@ const Events: React.FC = () => {
       <div className="events-container">
         <h1 className="page-title">Events</h1>
         
+        <div className="event-filter">
+          <div className="filter-tags">
+            <button 
+              className={`filter-button ${activeFilter === 'all' ? 'active' : ''}`}
+              onClick={() => handleFilterClick('all')}
+            >
+              All
+            </button>
+            <button 
+              className={`filter-button public ${activeFilter === 'public' ? 'active' : ''}`}
+              onClick={() => handleFilterClick('public')}
+            >
+              Public
+            </button>
+            <button 
+              className={`filter-button private ${activeFilter === 'private' ? 'active' : ''}`}
+              onClick={() => handleFilterClick('private')}
+            >
+              Private
+            </button>
+            
+            {canCreateEvents && (
+              <Link to="/create-event" className="create-event-button">
+                Create Event
+              </Link>
+            )}
+          </div>
+        </div>
+        
         <div className="events-list">
-          {events.length === 0 ? (
-            <p className="no-events">No events found.</p>
+          {filteredEvents.length === 0 ? (
+            <p className="no-events">
+              {activeFilter === 'all' 
+                ? 'No events found.' 
+                : `No ${activeFilter} events found.`}
+            </p>
           ) : (
-            events.map((event) => (
-              <div key={event.Event_ID} className="event-card">
-                <h2 className="event-name">{event.Name}</h2>
-                <p className="event-description">{event.Description}</p>
+            filteredEvents.map((event) => (
+              <div key={event.event_id} className={`event-card ${event.event_type}`}>
+                <div className="event-type-tag">{event.event_type}</div>
+                <h2 className="event-name">{event.event_name}</h2>
+                {event.avg_rating && (
+                  <div className="event-rating">
+                    <span className="rating-stars">
+                      {Array.from({ length: 5 }).map((_, i) => (
+                        <span 
+                          key={i} 
+                          className={`star ${i < Math.round(event.avg_rating || 0) ? 'filled' : ''}`}
+                        >★</span>
+                      ))}
+                    </span>
+                    <span className="rating-value">({event.avg_rating.toFixed(1)})</span>
+                  </div>
+                )}
+                <p className="event-description">
+                  {event.event_description.length > 150 
+                    ? `${event.event_description.substring(0, 150)}...` 
+                    : event.event_description}
+                </p>
                 <div className="event-meta">
-                  <p><strong>Date:</strong> {event.Date}</p>
-                  <p><strong>Time:</strong> {event.Time}</p>
-                  <p><strong>Location:</strong> {event.Location}</p>
+                  <p><strong>Date:</strong> {new Date(event.event_date).toLocaleDateString()}</p>
+                  <p><strong>Time:</strong> {event.event_time}</p>
+                  {event.university_name && (
+                    <p><strong>University:</strong> {event.university_name}</p>
+                  )}
+                  <p><strong>Location:</strong> {event.location_name}</p>
+                  <p><strong>Category:</strong> {event.event_category}</p>
                 </div>
-                <Link to={`/events/${event.Event_ID}`} className="view-details-button">
+                <Link to={`/events/${event.event_id}`} className="view-details-button">
                   View Details
                 </Link>
               </div>

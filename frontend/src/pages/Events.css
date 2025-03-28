@@ -24,6 +24,8 @@
   padding: 1.5rem;
   box-shadow: 0 2px 5px rgba(0, 0, 0, 0.1);
   transition: transform 0.3s;
+  position: relative;
+  overflow: hidden;
 }
 
 .event-card:hover {
@@ -33,11 +35,12 @@
 .event-name {
   margin-bottom: 1rem;
   font-size: 1.5rem;
+  color: black;
 }
 
 .event-description {
   margin-bottom: 1rem;
-  color: #555;
+  color: black;
   display: -webkit-box;
   -webkit-line-clamp: 3;
   -webkit-box-orient: vertical;
@@ -46,6 +49,7 @@
 
 .event-meta {
   margin-bottom: 1.5rem;
+  color: black;
 }
 
 .event-meta p {
@@ -85,4 +89,165 @@
 
 .error {
   color: #dc3545;
+}
+
+.event-filter {
+  margin-bottom: 20px;
+  padding: 15px;
+  background-color: #f5f5f5;
+  border-radius: 5px;
+}
+
+.filter-tags {
+  display: flex;
+  gap: 10px;
+  align-items: center;
+}
+
+.filter-tag {
+  padding: 5px 10px;
+  border-radius: 4px;
+  font-size: 0.9rem;
+  color: white;
+}
+
+.filter-tag.public {
+  background-color: #2196f3;
+}
+
+.filter-tag.private {
+  background-color: #9c27b0;
+}
+
+.filter-tag.rso {
+  display: none;
+}
+
+.event-card.public {
+  border-left: 4px solid #2196f3;
+}
+
+.event-card.private {
+  border-left: 4px solid #9c27b0;
+}
+
+.event-card.rso {
+  border-left: 4px solid #ff9800;
+}
+
+.event-type-tag {
+  position: absolute;
+  top: 10px;
+  right: 10px;
+  display: inline-block;
+  padding: 3px 8px;
+  border-radius: 3px;
+  font-size: 0.8rem;
+  font-weight: 500;
+  text-transform: uppercase;
+  background-color: #f5f5f5;
+  color: #333;
+}
+
+.event-card.public .event-type-tag {
+  background-color: #2196f3;
+  color: white;
+}
+
+.event-card.private .event-type-tag {
+  background-color: #9c27b0;
+  color: white;
+}
+
+.event-card.rso .event-type-tag {
+  background-color: #ff9800;
+  color: white;
+}
+
+.filter-button {
+  padding: 8px 16px;
+  border-radius: 4px;
+  font-size: 0.9rem;
+  color: #333;
+  background-color: #f0f0f0;
+  border: 1px solid #ddd;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.filter-button:hover {
+  background-color: #e0e0e0;
+}
+
+.filter-button.active {
+  font-weight: bold;
+  color: white;
+  border-color: transparent;
+}
+
+.filter-button.public {
+  color: #333;
+}
+
+.filter-button.public.active {
+  background-color: #2196f3;
+  color: white;
+}
+
+.filter-button.private {
+  color: #333;
+}
+
+.filter-button.private.active {
+  background-color: #9c27b0;
+  color: white;
+}
+
+.create-event-button {
+  display: inline-block;
+  padding: 8px 16px;
+  background-color: #28a745;
+  color: white;
+  border-radius: 4px;
+  text-decoration: none;
+  font-weight: bold;
+  transition: background-color 0.3s;
+  margin-left: auto;
+}
+
+.create-event-button:hover {
+  background-color: #218838;
+}
+
+.event-rating {
+  display: flex;
+  align-items: center;
+  margin-bottom: 10px;
+}
+
+.rating-stars {
+  color: #ddd;
+  font-size: 1.2rem;
+  margin-right: 5px;
+}
+
+.star.filled {
+  color: #ffc107;
+}
+
+.rating-value {
+  font-size: 0.9rem;
+  color: #555;
+}
+
+@media (max-width: 768px) {
+  .filter-tags {
+    flex-wrap: wrap;
+  }
+  
+  .create-event-button {
+    margin-left: 0;
+    margin-top: 10px;
+    text-align: center;
+  }
 } 

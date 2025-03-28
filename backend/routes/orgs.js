@@ -165,6 +165,112 @@ router.post('/', async function(req, res, next) {
   }
 });
 
+/* GET RSOs where user is admin */
+router.get('/admin', async function(req, res, next) {
+  if (!req.session.username) {
+    return res.status(401).json({
+      success: false,
+      message: "Not logged in"
+    });
+  }
+  
+  try {
+    // Get user ID
+    const userQuery = "SELECT user_id FROM users WHERE username = ?";
+    const [userResult] = await pool.query(userQuery, [req.session.username]);
+    
+    if (!userResult.length) {
+      return res.status(404).json({
+        success: false,
+        message: "User not found"
+      });
+    }
+    
+    const userId = userResult[0].user_id;
+    
+    // Get all RSOs where user is admin
+    const adminRSOsQuery = `
+      SELECT r.*, 
+             (SELECT COUNT(*) FROM rso_membership rm WHERE rm.rso_id = r.rso_id) as member_count 
+      FROM rso r 
+      WHERE r.admin_user_id = ?
+      ORDER BY r.is_active DESC, r.rso_name ASC
+    `;
+    
+    const [adminRSOs] = await pool.query(adminRSOsQuery, [userId]);
+    
+    return res.status(200).json({
+      success: true,
+      rsos: adminRSOs
+    });
+    
+  } catch (err) {
+    console.log(err);
+    return res.status(500).json({
+      success: false,
+      message: "Failed to fetch admin RSOs: " + err.message
+    });
+  }
+});
+
+/* GET RSOs that user is a member of */
+router.get('/my', async function(req, res, next) {
+  if (!req.session.username) {
+    return res.status(401).json({
+      success: false,
+      message: "Not logged in"
+    });
+  }
+  
+  try {
+    // Get user ID
+    const userQuery = "SELECT user_id FROM users WHERE username = ?";
+    const [userResult] = await pool.query(userQuery, [req.session.username]);
+    
+    if (!userResult.length) {
+      return res.status(404).json({
+        success: false,
+        message: "User not found"
+      });
+    }
+    
+    const userId = userResult[0].user_id;
+    
+    // Get all RSOs where user is a member
+    const memberRSOsQuery = `
+      SELECT r.*, 
+             (SELECT COUNT(*) FROM rso_membership rm WHERE rm.rso_id = r.rso_id) as member_count,
+             (r.admin_user_id = ?) as is_admin,
+             (SELECT u.username FROM users u WHERE u.user_id = r.admin_user_id) as admin_name 
+      FROM rso r 
+      JOIN rso_membership rm ON r.rso_id = rm.rso_id
+      WHERE rm.user_id = ?
+      ORDER BY r.is_active DESC, r.rso_name ASC
+    `;
+    
+    const [memberRSOs] = await pool.query(memberRSOsQuery, [userId, userId]);
+    
+    // Enhance data with boolean properties instead of 0/1
+    const enhancedRSOs = memberRSOs.map(rso => ({
+      ...rso,
+      is_admin: !!rso.is_admin,
+      is_member: true
+    }));
+    
+    return res.status(200).json({
+      success: true,
+      rsos: enhancedRSOs
+    });
+    
+  } catch (err) {
+    console.log(err);
+    return res.status(500).json({
+      success: false,
+      message: "Failed to fetch member RSOs: " + err.message
+    });
+  }
+});
+
 /* GET specific RSO details */
 router.get('/:rsoid', async function(req, res, next) {
   const rsoId = req.params.rsoid;
@@ -579,6 +685,60 @@ router.delete('/:rsoid/members/:userid', async function(req, res, next) {
     return res.status(500).json({
       success: false,
       message: "Failed to remove member: " + err.message
+    });
+  }
+});
+
+/* GET events for a specific RSO */
+router.get('/:rsoid/events', async function(req, res, next) {
+  const rsoId = req.params.rsoid;
+  
+  if (!req.session.username) {
+    return res.status(401).json({
+      success: false,
+      message: "Not logged in"
+    });
+  }
+  
+  try {
+    // Check if user is a member of this RSO
+    const membershipCheck = `
+      SELECT rm.* FROM rso_membership rm
+      JOIN users u ON rm.user_id = u.user_id
+      WHERE rm.rso_id = ? AND u.username = ?
+    `;
+    
+    const [memberResult] = await pool.query(membershipCheck, [rsoId, req.session.username]);
+    
+    // Only allow members to see RSO events
+    if (!memberResult.length) {
+      return res.status(403).json({
+        success: false,
+        message: "You must be a member of this RSO to view its events"
+      });
+    }
+    
+    // Get all events for this RSO, including ratings
+    const eventsQuery = `
+      SELECT e.*, 
+             (SELECT AVG(rating_value) FROM rating WHERE event_id = e.event_id) as avg_rating
+      FROM event e
+      WHERE e.rso_id = ? AND e.approved_by IS NOT NULL
+      ORDER BY e.event_date ASC, e.event_time ASC
+    `;
+    
+    const [events] = await pool.query(eventsQuery, [rsoId]);
+    
+    return res.status(200).json({
+      success: true,
+      events: events
+    });
+    
+  } catch (err) {
+    console.log(err);
+    return res.status(500).json({
+      success: false,
+      message: "Failed to fetch RSO events: " + err.message
     });
   }
 });

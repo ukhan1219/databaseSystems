@@ -33,7 +33,10 @@ router.get('/', async function(req, res, next) {
       
       // Default query for all accessible events
       let queryString = `
-        SELECT DISTINCT e.* FROM event e 
+        SELECT DISTINCT e.*, u.name as university_name,
+        (SELECT AVG(rating_value) FROM rating WHERE event_id = e.event_id) as avg_rating
+        FROM event e 
+        LEFT JOIN university u ON e.university_id = u.university_id
         LEFT JOIN rso_membership rm ON e.rso_id = rm.rso_id AND rm.user_id = (SELECT user_id FROM users WHERE username = ?)
         WHERE 
           (e.approved_by IS NOT NULL AND e.event_type = 'public') OR 
@@ -54,27 +57,35 @@ router.get('/', async function(req, res, next) {
       if(req.query.selection === "private")
       {
          queryString = `
-           SELECT * FROM event 
-           WHERE university_id = ? AND event_type = 'private' AND approved_by IS NOT NULL
+           SELECT e.*, u.name as university_name,
+           (SELECT AVG(rating_value) FROM rating WHERE rating.event_id = e.event_id) as avg_rating 
+           FROM event e
+           JOIN university u ON e.university_id = u.university_id
+           WHERE e.university_id = ? AND e.event_type = 'private' AND e.approved_by IS NOT NULL
          `;
         console.log("filter:private");
       }    
       else if(req.query.selection === "rso")
       {
          queryString = `
-           SELECT DISTINCT e.* FROM event e
+           SELECT DISTINCT e.*, u.name as university_name,
+           (SELECT AVG(rating_value) FROM rating WHERE event_id = e.event_id) as avg_rating
+           FROM event e
+           JOIN university u ON e.university_id = u.university_id
            INNER JOIN rso_membership rm ON e.rso_id = rm.rso_id
-           INNER JOIN users u ON rm.user_id = u.user_id
-           WHERE u.username = ? AND e.event_type = 'rso' AND e.approved_by IS NOT NULL
+           INNER JOIN users u2 ON rm.user_id = u2.user_id
+           WHERE u2.username = ? AND e.event_type = 'rso' AND e.approved_by IS NOT NULL
          `;
         console.log("filter:rso");
       }    
       else if(req.query.selection === "public")
       {
          queryString = `
-           SELECT * FROM event 
-           WHERE event_type = 'public' AND approved_by IS NOT NULL
-           AND university_id = ?
+           SELECT e.*, u.name as university_name,
+           (SELECT AVG(rating_value) FROM rating WHERE rating.event_id = e.event_id) as avg_rating
+           FROM event e
+           JOIN university u ON e.university_id = u.university_id
+           WHERE e.event_type = 'public' AND e.approved_by IS NOT NULL
          `;
         console.log("filter:public");
       }
@@ -88,7 +99,7 @@ router.get('/', async function(req, res, next) {
       } else if(req.query.selection === "rso") {
         [erows] = await pool.query(queryString, [req.session.username]);
       } else if(req.query.selection === "public") {
-        [erows] = await pool.query(queryString, [userUniversityId]);
+        [erows] = await pool.query(queryString);
       } else {
         [erows] = await pool.query(queryString, [req.session.username, userUniversityId]);
       }
@@ -301,13 +312,13 @@ router.post('/:eventid/comment', async function(req, res, next) {
       LEFT JOIN rso_membership rm ON e.rso_id = rm.rso_id AND rm.user_id = ?
       WHERE 
         e.event_id = ? AND (
-          (e.approved_by IS NOT NULL AND e.event_type = 'public' AND e.university_id = ?) OR 
+          (e.approved_by IS NOT NULL AND e.event_type = 'public') OR 
           (e.university_id = ? AND e.event_type = 'private') OR 
           (rm.user_id IS NOT NULL AND e.event_type = 'rso')
         )
     `;
     
-    const [eventResult] = await pool.query(eventQuery, [userId, eventId, userUniversityId, userUniversityId]);
+    const [eventResult] = await pool.query(eventQuery, [userId, eventId, userUniversityId]);
     
     if (!eventResult.length) {
       return res.status(403).json({
@@ -387,13 +398,13 @@ router.post('/:eventid/rate', async function(req, res, next) {
       LEFT JOIN rso_membership rm ON e.rso_id = rm.rso_id AND rm.user_id = ?
       WHERE 
         e.event_id = ? AND (
-          (e.approved_by IS NOT NULL AND e.event_type = 'public' AND e.university_id = ?) OR 
+          (e.approved_by IS NOT NULL AND e.event_type = 'public') OR 
           (e.university_id = ? AND e.event_type = 'private') OR 
           (rm.user_id IS NOT NULL AND e.event_type = 'rso')
         )
     `;
     
-    const [eventResult] = await pool.query(eventQuery, [userId, eventId, userUniversityId, userUniversityId]);
+    const [eventResult] = await pool.query(eventQuery, [userId, eventId, userUniversityId]);
     
     if (!eventResult.length) {
       return res.status(403).json({
@@ -457,19 +468,20 @@ router.get('/:eventid', async function(req, res, next) {
       
       // Check if event exists and user has access based on university
       const eventAccessQuery = `
-        SELECT DISTINCT e.*, u.name as university_name 
+        SELECT DISTINCT e.*, u.name as university_name,
+        (SELECT AVG(rating_value) FROM rating WHERE event_id = e.event_id) as avg_rating 
         FROM event e
         LEFT JOIN university u ON e.university_id = u.university_id
         LEFT JOIN rso_membership rm ON e.rso_id = rm.rso_id AND rm.user_id = (SELECT user_id FROM users WHERE username = ?)
         WHERE 
           e.event_id = ? AND (
-            (e.approved_by IS NOT NULL AND e.event_type = 'public' AND e.university_id = ?) OR 
+            (e.approved_by IS NOT NULL AND e.event_type = 'public') OR 
             (e.university_id = ? AND e.event_type = 'private') OR 
             (rm.user_id IS NOT NULL AND e.event_type = 'rso')
           )
       `;
       
-      const [eventResult] = await pool.query(eventAccessQuery, [req.session.username, eventId, userUniversityId, userUniversityId]);
+      const [eventResult] = await pool.query(eventAccessQuery, [req.session.username, eventId, userUniversityId]);
       
       if (!eventResult.length) {
         return res.status(403).json({
@@ -538,13 +550,13 @@ router.get('/:eventid/comments', async function(req, res, next) {
       LEFT JOIN rso_membership rm ON e.rso_id = rm.rso_id AND rm.user_id = ?
       WHERE 
         e.event_id = ? AND (
-          (e.approved_by IS NOT NULL AND e.event_type = 'public' AND e.university_id = ?) OR 
+          (e.approved_by IS NOT NULL AND e.event_type = 'public') OR 
           (e.university_id = ? AND e.event_type = 'private') OR 
           (rm.user_id IS NOT NULL AND e.event_type = 'rso')
         )
     `;
     
-    const [eventResult] = await pool.query(eventAccessQuery, [userId, eventId, userUniversityId, userUniversityId]);
+    const [eventResult] = await pool.query(eventAccessQuery, [userId, eventId, userUniversityId]);
     
     if (!eventResult.length) {
       return res.status(404).json({
@@ -611,13 +623,13 @@ router.get('/:eventid/ratings', async function(req, res, next) {
       LEFT JOIN rso_membership rm ON e.rso_id = rm.rso_id AND rm.user_id = ?
       WHERE 
         e.event_id = ? AND (
-          (e.approved_by IS NOT NULL AND e.event_type = 'public' AND e.university_id = ?) OR 
+          (e.approved_by IS NOT NULL AND e.event_type = 'public') OR 
           (e.university_id = ? AND e.event_type = 'private') OR 
           (rm.user_id IS NOT NULL AND e.event_type = 'rso')
         )
     `;
     
-    const [eventResult] = await pool.query(eventAccessQuery, [currentUserId, eventId, userUniversityId, userUniversityId]);
+    const [eventResult] = await pool.query(eventAccessQuery, [currentUserId, eventId, userUniversityId]);
     
     if (!eventResult.length) {
       return res.status(403).json({

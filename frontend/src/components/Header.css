@@ -40,4 +40,18 @@
 
 .nav-links a:hover {
   color: #7ec0ee;
+}
+
+.logout-btn {
+  background: none;
+  border: none;
+  color: white;
+  cursor: pointer;
+  font-size: 1rem;
+  padding: 0;
+  text-decoration: underline;
+}
+
+.logout-btn:hover {
+  color: #ddd;
 } 

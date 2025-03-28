@@ -4,9 +4,16 @@ import Header from '../components/Header';
 import './ViewRSO.css';
 
 interface RSO {
-  RSO_ID: number;
-  Name: string;
-  Admin: string;
+  rso_id: number;
+  rso_name: string;
+  description: string;
+  is_active: boolean;
+  admin_user_id: number;
+  admin_username: string;
+  admin_email: string;
+  university_name: string;
+  member_count: number;
+  has_enough_members: boolean;
 }
 
 const ViewRSO: React.FC = () => {
@@ -20,17 +27,19 @@ const ViewRSO: React.FC = () => {
     const fetchRSODetails = async () => {
       try {
         // Replace with your actual API endpoint
-        const response = await fetch(`http://localhost:8000/api/rsos/${id}`);
+        const response = await fetch(`http://localhost:5001/api/rsos/${id}`, {
+          credentials: 'include'
+        });
         
         if (!response.ok) {
           throw new Error('Failed to fetch RSO details');
         }
         
         const data = await response.json();
-        setOrg(data);
+        setOrg(data.rso);  // Update to match the expected response format
         
         // Check if user is a member of this RSO
-        const membershipResponse = await fetch(`http://localhost:8000/api/rsos/${id}/membership`, {
+        const membershipResponse = await fetch(`http://localhost:5001/api/rsos/${id}/membership`, {
           credentials: 'include', // Include cookies for auth
         });
         
@@ -52,7 +61,7 @@ const ViewRSO: React.FC = () => {
   const handleButtonClick = async () => {
     try {
       const action = joinStatus === 1 ? 'join' : 'leave';
-      const response = await fetch(`http://localhost:8000/api/rsos/${id}/${action}`, {
+      const response = await fetch(`http://localhost:5001/api/rsos/${id}/${action}`, {
         method: 'POST',
         credentials: 'include',
         headers: {
@@ -79,15 +88,22 @@ const ViewRSO: React.FC = () => {
     <>
       <Header />
       <div className="view-rso-container">
-        <h1 className="page-title">Org Details</h1>
+        <h1 className="page-title">RSO Details</h1>
         
         <div className="view-rso-card">
-          <h3 className="rso-name">Name: {org.Name}</h3>
-          <h5 className="rso-admin">Admin: {org.Admin}</h5>
+          <h2 className="rso-name">{org.rso_name}</h2>
+          <p className="rso-description">{org.description}</p>
+          <div className="rso-meta">
+            <p><strong>Admin:</strong> {org.admin_username}</p>
+            <p><strong>University:</strong> {org.university_name}</p>
+            <p><strong>Members:</strong> {org.member_count}</p>
+            <p><strong>Status:</strong> {org.is_active ? 'Active' : 'Inactive'}</p>
+          </div>
 
           <button 
             className={joinStatus === 1 ? "join-button" : "leave-button"}
             onClick={handleButtonClick}
+            disabled={!org.is_active}
           >
             {joinStatus === 1 ? "Join" : "Leave"}
           </button>

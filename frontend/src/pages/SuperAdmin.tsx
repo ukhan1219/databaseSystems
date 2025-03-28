@@ -29,32 +29,43 @@ const SuperAdmin: React.FC = () => {
   useEffect(() => {
     const fetchData = async () => {
       try {
+        console.log("Fetching unapproved events...");
         // Fetch unapproved events
-        const eventsResponse = await fetch('http://localhost:8000/api/events/unapproved', {
+        const eventsResponse = await fetch('http://localhost:5001/api/super/events/unapproved', {
           credentials: 'include',
         });
         
         if (!eventsResponse.ok) {
+          console.error("Failed to fetch unapproved events:", eventsResponse.status, eventsResponse.statusText);
+          const errorText = await eventsResponse.text();
+          console.error("Error response:", errorText);
           throw new Error('Failed to fetch unapproved events');
         }
         
         const eventsData = await eventsResponse.json();
+        console.log("Received unapproved events:", eventsData);
         setEvents(eventsData);
         
+        console.log("Fetching unapproved RSOs...");
         // Fetch unapproved RSOs
-        const rsosResponse = await fetch('http://localhost:8000/api/rsos/unapproved', {
+        const rsosResponse = await fetch('http://localhost:5001/api/super/rsos/unapproved', {
           credentials: 'include',
         });
         
         if (!rsosResponse.ok) {
+          console.error("Failed to fetch unapproved RSOs:", rsosResponse.status, rsosResponse.statusText);
+          const errorText = await rsosResponse.text();
+          console.error("Error response:", errorText);
           throw new Error('Failed to fetch unapproved RSOs');
         }
         
         const rsosData = await rsosResponse.json();
+        console.log("Received unapproved RSOs:", rsosData);
         setRSOs(rsosData);
         
         setLoading(false);
       } catch (err) {
+        console.error("Error in fetchData:", err);
         setError(err instanceof Error ? err.message : 'An error occurred');
         setLoading(false);
       }
@@ -65,7 +76,7 @@ const SuperAdmin: React.FC = () => {
 
   const handleApproveEvent = async (eventId: number) => {
     try {
-      const response = await fetch(`http://localhost:8000/api/events/${eventId}/approve`, {
+      const response = await fetch(`http://localhost:5001/api/super/events/${eventId}/approve`, {
         method: 'POST',
         credentials: 'include',
         headers: {
@@ -87,7 +98,7 @@ const SuperAdmin: React.FC = () => {
 
   const handleApproveRSO = async (rsoId: number) => {
     try {
-      const response = await fetch(`http://localhost:8000/api/rsos/${rsoId}/approve`, {
+      const response = await fetch(`http://localhost:5001/api/super/rsos/${rsoId}/approve`, {
         method: 'POST',
         credentials: 'include',
         headers: {
