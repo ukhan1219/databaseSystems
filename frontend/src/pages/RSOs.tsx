@@ -100,11 +100,8 @@ const RSOs: React.FC = () => {
           if (eventsResponse.ok) {
             const eventsData = await eventsResponse.json();
             console.log(`Received events for RSO ${rso.rso_id}:`, eventsData);
-            // Only include RSO-type events
-            const rsoEvents = (eventsData.events || []).filter(
-              (event: Event) => event.event_type === 'rso'
-            );
-            return { rsoId: rso.rso_id, events: rsoEvents };
+            // Include all events for this RSO (removed filter that was only keeping 'rso' type events)
+            return { rsoId: rso.rso_id, events: eventsData.events || [] };
           }
           console.error(`Failed to fetch events for RSO ${rso.rso_id}:`, eventsResponse.status);
           return { rsoId: rso.rso_id, events: [] };
@@ -300,14 +297,20 @@ const RSOs: React.FC = () => {
                               {event.avg_rating !== undefined && (
                                 <div className="event-rating">
                                   <span className="rating-stars">
-                                    {Array.from({ length: 5 }).map((_, i) => (
-                                      <span 
-                                        key={i} 
-                                        className={`star ${i < Math.round(event.avg_rating || 0) ? 'filled' : ''}`}
-                                      >★</span>
-                                    ))}
+                                    {Array.from({ length: 5 }).map((_, i) => {
+                                      // Convert to number and handle null/undefined values
+                                      const avgRating = event.avg_rating ? parseFloat(String(event.avg_rating)) : 0;
+                                      return (
+                                        <span 
+                                          key={i} 
+                                          className={`star ${i < Math.round(avgRating) ? 'filled' : ''}`}
+                                        >★</span>
+                                      );
+                                    })}
                                   </span>
-                                  <span className="rating-value">({event.avg_rating.toFixed(1)})</span>
+                                  <span className="rating-value">
+                                    ({event.avg_rating ? parseFloat(String(event.avg_rating)).toFixed(1) : '0.0'})
+                                  </span>
                                 </div>
                               )}
                               <div className="event-meta">
@@ -363,13 +366,13 @@ const RSOs: React.FC = () => {
                         Join RSO
                       </button>
                       <Link to={`/rsos/${rso.rso_id}`} className="view-details-button">
-                        View Details
-                      </Link>
+                  View Details
+                </Link>
                     </div>
-                  </div>
-                ))
-              )}
-            </div>
+              </div>
+            ))
+          )}
+        </div>
           </div>
         )}
       </div>

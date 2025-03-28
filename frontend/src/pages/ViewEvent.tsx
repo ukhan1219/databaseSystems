@@ -131,24 +131,10 @@ const ViewEvent: React.FC = () => {
         }
         
         if (eventType === 'rso' && eventData.event.rso_id) {
-          console.log("Checking RSO membership for RSO ID:", eventData.event.rso_id);
-          // This check is already handled by the backend when fetching the event
-          // The backend will not return the event if the user doesn't have access
-          // This is just an additional safety check
-          try {
-            const response = await fetch(`http://localhost:5001/api/rsos/${eventData.event.rso_id}/check-member`, {
-              credentials: 'include'
-            });
-            
-            if (!response.ok) {
-              console.error("Not a member of this RSO:", response.status);
-              navigate('/events');
-              return;
-            }
-          } catch (err) {
-            console.error("Error checking RSO membership:", err);
-            // Continue without redirecting - backend already validated access
-          }
+          console.log("Event belongs to RSO ID:", eventData.event.rso_id);
+          // The backend already handled the access check when returning the event
+          // If we got this far, the user is authorized to view the event
+          // No need for an additional API call that doesn't exist
         }
         
         // Fetch comments
