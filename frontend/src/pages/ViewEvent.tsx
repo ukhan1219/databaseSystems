@@ -159,6 +159,29 @@ const ViewEvent: React.FC = () => {
     }
   }, [id, user, navigate]);
 
+  // Refresh event data to get updated ratings
+  const refreshEventData = async () => {
+    if (!id) return;
+    
+    try {
+      const response = await fetch(`http://localhost:5001/api/events/${id}`, {
+        credentials: 'include'
+      });
+      
+      if (response.ok) {
+        const data = await response.json();
+        if (data.event && event) {
+          console.log("Refreshed event data with updated rating:", data.event.avg_rating);
+          setEvent(data.event);
+        }
+      } else {
+        console.error("Failed to refresh event data:", response.status);
+      }
+    } catch (err) {
+      console.error("Error refreshing event data:", err);
+    }
+  };
+
   const handleRatingChange = (selectedRating: number) => {
     setRating(selectedRating);
   };
@@ -210,6 +233,10 @@ const ViewEvent: React.FC = () => {
         
         if (!rateResponse.ok) {
           console.error("Failed to add rating:", await rateResponse.text());
+        } else {
+          console.log("Rating updated successfully:", rating);
+          // Add a small delay to ensure the rating is processed
+          await new Promise(resolve => setTimeout(resolve, 200));
         }
       }
 
@@ -242,17 +269,8 @@ const ViewEvent: React.FC = () => {
           }
         }
         
-        // Refresh the event to get the updated average rating
-        const eventResponse = await fetch(`http://localhost:5001/api/events/${id}`, {
-          credentials: 'include'
-        });
-        
-        if (eventResponse.ok) {
-          const eventData = await eventResponse.json();
-          if (eventData.event && event) {
-            setEvent(eventData.event);
-          }
-        }
+        // Refresh the event data with the updated rating
+        await refreshEventData();
       } catch (err) {
         console.error("Error refreshing data:", err);
       }
@@ -285,27 +303,38 @@ const ViewEvent: React.FC = () => {
     if (!editingComment) return;
     
     try {
-      // First update the comment text
-      const commentResponse = await fetch(`http://localhost:5001/api/events/${id}/comment`, {
-        method: 'POST',  // Use POST since we don't have a PUT endpoint
+      // Create a direct PATCH request to update the comment in the database
+      const commentResponse = await fetch(`http://localhost:5001/api/events/${id}/comments/${commentId}`, {
+        method: 'DELETE',  // Delete first, then we'll create a new one
+        credentials: 'include',
+      });
+
+      if (!commentResponse.ok) {
+        const errorText = await commentResponse.text();
+        console.error("Delete for update error:", errorText);
+        throw new Error(`Failed to update comment: ${commentResponse.status}`);
+      }
+      
+      // Now create a new comment with the updated text
+      const addResponse = await fetch(`http://localhost:5001/api/events/${id}/comment`, {
+        method: 'POST',
         credentials: 'include',
         headers: {
           'Content-Type': 'application/json',
         },
         body: JSON.stringify({
           comment_text: editCommentText,
-          comment_id: commentId  // Include comment_id so backend knows it's an update
         }),
       });
 
-      if (!commentResponse.ok) {
-        const errorText = await commentResponse.text();
-        console.error("Update comment error:", errorText);
-        throw new Error(`Failed to update comment: ${commentResponse.status}`);
+      if (!addResponse.ok) {
+        const errorText = await addResponse.text();
+        console.error("Add comment error:", errorText);
+        throw new Error(`Failed to submit comment: ${addResponse.status}`);
       }
       
-      // Update rating if provided
-      if (rating > 0 || rating !== editingComment.rating_value) {
+      // Only add rating if user provided one
+      if (rating > 0) {
         const rateResponse = await fetch(`http://localhost:5001/api/events/${id}/rate`, {
           method: 'POST',
           credentials: 'include',
@@ -318,42 +347,53 @@ const ViewEvent: React.FC = () => {
         });
         
         if (!rateResponse.ok) {
-          console.error("Failed to update rating:", await rateResponse.text());
+          console.error("Failed to add rating:", await rateResponse.text());
+        } else {
+          console.log("Rating updated successfully:", rating);
+          // Add a small delay to ensure the rating is processed
+          await new Promise(resolve => setTimeout(resolve, 200));
         }
       }
+
+      const commentData = await addResponse.json();
       
-      // Update comment in local state
-      setComments(comments.map(comment => 
-        comment.comment_id === commentId 
-          ? { 
-              ...comment, 
+      // Refresh comments to get updated data
+      try {
+        const commentsResponse = await fetch(`http://localhost:5001/api/events/${id}/comment`, {
+          credentials: 'include'
+        });
+        
+        if (commentsResponse.ok) {
+          const commentsData = await commentsResponse.json();
+          setComments(commentsData.comments || []);
+        } else {
+          console.error("Failed to refresh comments:", commentsResponse.status);
+          // Add the new comment to the list manually if refresh fails
+          if (commentData.commentId && user) {
+            const newCommentObj: Comment = {
+              comment_id: commentData.commentId,
+              user_id: user.user_id,
+              username: user.username,
+              event_id: parseInt(id || '0'),
+              rating_value: rating > 0 ? rating : undefined,
               comment_text: editCommentText,
-              rating_value: rating > 0 ? rating : comment.rating_value,
-              updated_at: new Date().toISOString() 
-            } 
-          : comment
-      ));
-      
+              created_at: new Date().toISOString(),
+              updated_at: new Date().toISOString()
+            };
+            setComments([...comments, newCommentObj]);
+          }
+        }
+        
+        // Refresh the event data with the updated rating
+        await refreshEventData();
+      } catch (err) {
+        console.error("Error refreshing data:", err);
+      }
+
       // Reset edit state
       setEditingComment(null);
       setEditCommentText('');
       setRating(0);
-      
-      // Refresh the event to get updated average rating
-      try {
-        const eventResponse = await fetch(`http://localhost:5001/api/events/${id}`, {
-          credentials: 'include'
-        });
-        
-        if (eventResponse.ok) {
-          const eventData = await eventResponse.json();
-          if (eventData.event && event) {
-            setEvent(eventData.event);
-          }
-        }
-      } catch (e) {
-        console.error("Error refreshing event data:", e);
-      }
     } catch (err) {
       setError(err instanceof Error ? err.message : 'An error occurred');
     }
@@ -380,21 +420,8 @@ const ViewEvent: React.FC = () => {
         handleCancelEdit();
       }
       
-      // Refresh the event to get the updated average rating
-      try {
-        const eventResponse = await fetch(`http://localhost:5001/api/events/${id}`, {
-          credentials: 'include'
-        });
-        
-        if (eventResponse.ok) {
-          const eventData = await eventResponse.json();
-          if (eventData.event && event) {
-            setEvent(eventData.event);
-          }
-        }
-      } catch (e) {
-        console.error("Error refreshing event after delete:", e);
-      }
+      // Refresh the event data with the updated rating
+      await refreshEventData();
     } catch (err) {
       setError(err instanceof Error ? err.message : 'An error occurred');
     }
@@ -426,10 +453,20 @@ const ViewEvent: React.FC = () => {
     return user && user.user_id === comment.user_id;
   };
 
-  // Format date to be more readable
+  // Format date to be more readable using local time
   const formatDate = (dateString: string) => {
-    const date = new Date(dateString);
-    return date.toLocaleString();
+    // If it's an ISO string from the server, convert it
+    if (dateString) {
+      const date = new Date(dateString);
+      return date.toLocaleString(undefined, {
+        year: 'numeric',
+        month: 'short',
+        day: 'numeric',
+        hour: '2-digit',
+        minute: '2-digit'
+      });
+    }
+    return new Date().toLocaleString(); // Fallback to current time
   };
 
   return (
@@ -448,15 +485,22 @@ const ViewEvent: React.FC = () => {
           
           {event.avg_rating !== undefined && event.avg_rating !== null && (
             <div className="event-average-rating">
+              <span className="rating-label">Average Rating: </span>
               <span className="avg-rating-stars">
-                {Array.from({ length: 5 }).map((_, i) => (
-                  <span 
-                    key={i} 
-                    className={`star ${i < Math.round(typeof event.avg_rating === 'number' ? event.avg_rating : 0) ? 'filled' : ''}`}
-                  >★</span>
-                ))}
+                {Array.from({ length: 5 }).map((_, i) => {
+                  // Parse the rating value to ensure it's treated as a number
+                  const avgRating = parseFloat(String(event.avg_rating || '0'));
+                  return (
+                    <span 
+                      key={i} 
+                      className={`star ${i < Math.round(avgRating) ? 'filled' : ''}`}
+                    >★</span>
+                  );
+                })}
               </span>
-              <span className="avg-rating-value">({typeof event.avg_rating === 'number' ? event.avg_rating.toFixed(1) : '0.0'})</span>
+              <span className="avg-rating-value">
+                ({isNaN(parseFloat(String(event.avg_rating))) ? '0.0' : parseFloat(String(event.avg_rating)).toFixed(1)})
+              </span>
             </div>
           )}
         </div>
@@ -642,4 +686,4 @@ const ViewEvent: React.FC = () => {
   );
 };
 
-export default ViewEvent; 
+export default ViewEvent;

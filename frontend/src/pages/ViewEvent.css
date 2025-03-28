@@ -62,7 +62,7 @@
 .event-average-rating {
   display: flex;
   align-items: center;
-  margin-top: 0.5rem;
+  margin: 15px 0;
 }
 
 .avg-rating-stars {
@@ -431,4 +431,9 @@
 
 .save-button:hover {
   background-color: #388e3c;
+}
+
+.rating-label {
+  font-weight: 600;
+  margin-right: 10px;
 } 
