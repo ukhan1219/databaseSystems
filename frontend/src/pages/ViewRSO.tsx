@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { useParams } from 'react-router-dom';
+import { useParams, useNavigate } from 'react-router-dom';
 import Header from '../components/Header';
 import './ViewRSO.css';
 
@@ -16,17 +16,39 @@ interface RSO {
   has_enough_members: boolean;
 }
 
+interface Member {
+  user_id: number;
+  username: string;
+  email: string;
+  user_role: string;
+  joined_date: string;
+  is_admin: boolean;
+  rso_role: string;
+  membership_duration: string;
+}
+
+interface MembershipStatus {
+  isMember: boolean;
+  isAdmin: boolean;
+  joinStatus: number;
+  joinStatusText: string;
+  canJoin: boolean;
+}
+
 const ViewRSO: React.FC = () => {
   const { id } = useParams<{ id: string }>();
+  const navigate = useNavigate();
   const [org, setOrg] = useState<RSO | null>(null);
-  const [joinStatus, setJoinStatus] = useState<number>(1); // 1: Not joined, 0: Joined
+  const [members, setMembers] = useState<Member[]>([]);
+  const [membership, setMembership] = useState<MembershipStatus | null>(null);
   const [loading, setLoading] = useState<boolean>(true);
   const [error, setError] = useState<string | null>(null);
+  const [actionLoading, setActionLoading] = useState<boolean>(false);
 
   useEffect(() => {
     const fetchRSODetails = async () => {
       try {
-        // Replace with your actual API endpoint
+        // Fetch RSO details
         const response = await fetch(`http://localhost:5001/api/rsos/${id}`, {
           credentials: 'include'
         });
@@ -36,20 +58,19 @@ const ViewRSO: React.FC = () => {
         }
         
         const data = await response.json();
-        setOrg(data.rso);  // Update to match the expected response format
+        console.log("RSO data:", data);
         
-        // Check if user is a member of this RSO
-        const membershipResponse = await fetch(`http://localhost:5001/api/rsos/${id}/membership`, {
-          credentials: 'include', // Include cookies for auth
-        });
+        setOrg(data.rso);
+        setMembership(data.membership);
         
-        if (membershipResponse.ok) {
-          const membershipData = await membershipResponse.json();
-          setJoinStatus(membershipData.isMember ? 0 : 1);
+        // If user is a member, fetch the member list
+        if (data.membership && data.membership.isMember) {
+          await fetchMembers();
         }
         
         setLoading(false);
       } catch (err) {
+        console.error("Error fetching RSO details:", err);
         setError(err instanceof Error ? err.message : 'An error occurred');
         setLoading(false);
       }
@@ -58,9 +79,31 @@ const ViewRSO: React.FC = () => {
     fetchRSODetails();
   }, [id]);
 
-  const handleButtonClick = async () => {
+  const fetchMembers = async () => {
     try {
-      const action = joinStatus === 1 ? 'join' : 'leave';
+      const membersResponse = await fetch(`http://localhost:5001/api/rsos/${id}/members`, {
+        credentials: 'include'
+      });
+
+      if (!membersResponse.ok) {
+        throw new Error('Failed to fetch RSO members');
+      }
+
+      const membersData = await membersResponse.json();
+      console.log("Members data:", membersData);
+      setMembers(membersData.members || []);
+    } catch (err) {
+      console.error("Error fetching members:", err);
+      // Don't set an error to avoid breaking the whole page
+    }
+  };
+
+  const handleJoinLeaveRSO = async () => {
+    if (!membership) return;
+    setActionLoading(true);
+    
+    try {
+      const action = membership.isMember ? 'leave' : 'join';
       const response = await fetch(`http://localhost:5001/api/rsos/${id}/${action}`, {
         method: 'POST',
         credentials: 'include',
@@ -69,44 +112,139 @@ const ViewRSO: React.FC = () => {
         }
       });
 
-      if (!response.ok) {
-        throw new Error(`Failed to ${action} RSO`);
+      // First check if the response is JSON
+      const contentType = response.headers.get('content-type');
+      if (!contentType || !contentType.includes('application/json')) {
+        throw new Error(`Server returned invalid response format: ${contentType || 'unknown'}`);
       }
 
-      // Toggle join status after successful action
-      setJoinStatus(joinStatus === 1 ? 0 : 1);
+      const data = await response.json();
+      
+      if (!response.ok) {
+        throw new Error(data.message || `Failed to ${action} RSO`);
+      }
+
+      if (action === 'join') {
+        // After joining, refresh to see updated data
+        window.location.reload();
+      } else {
+        // After leaving, go back to RSOs page
+        navigate('/rsos');
+      }
     } catch (err) {
+      console.error(`Error ${membership.isMember ? 'leaving' : 'joining'} RSO:`, err);
       setError(err instanceof Error ? err.message : 'An error occurred');
+    } finally {
+      setActionLoading(false);
     }
   };
 
-  if (loading) return <div className="loading">Loading...</div>;
-  if (error) return <div className="error">{error}</div>;
-  if (!org) return <div className="not-found">RSO not found</div>;
+  if (loading) return (
+    <>
+      <Header />
+      <div className="loading">Loading RSO details...</div>
+    </>
+  );
+  
+  if (error) return (
+    <>
+      <Header />
+      <div className="error">{error}</div>
+    </>
+  );
+  
+  if (!org || !membership) return (
+    <>
+      <Header />
+      <div className="not-found">RSO not found</div>
+    </>
+  );
 
   return (
     <>
       <Header />
       <div className="view-rso-container">
+        <div className="back-navigation">
+          <button className="back-button" onClick={() => navigate('/rsos')}>
+            &larr; Back to RSOs
+          </button>
+        </div>
         <h1 className="page-title">RSO Details</h1>
         
         <div className="view-rso-card">
-          <h2 className="rso-name">{org.rso_name}</h2>
+          <div className="rso-header">
+            <h2 className="rso-name">{org.rso_name}</h2>
+            <div className="rso-badges">
+              {membership.isAdmin && <span className="badge admin-badge">Admin</span>}
+              <span className={`badge status-badge ${org.is_active ? 'active' : 'inactive'}`}>
+                {org.is_active ? 'Active' : 'Inactive'}
+              </span>
+            </div>
+          </div>
+          
           <p className="rso-description">{org.description}</p>
+          
           <div className="rso-meta">
             <p><strong>Admin:</strong> {org.admin_username}</p>
             <p><strong>University:</strong> {org.university_name}</p>
             <p><strong>Members:</strong> {org.member_count}</p>
-            <p><strong>Status:</strong> {org.is_active ? 'Active' : 'Inactive'}</p>
+            {!org.is_active && org.has_enough_members && (
+              <p className="pending-approval">This RSO has enough members and is awaiting admin approval</p>
+            )}
+            {!org.is_active && !org.has_enough_members && (
+              <p className="needs-members">This RSO needs at least 5 members to be activated</p>
+            )}
           </div>
 
-          <button 
-            className={joinStatus === 1 ? "join-button" : "leave-button"}
-            onClick={handleButtonClick}
-            disabled={!org.is_active}
-          >
-            {joinStatus === 1 ? "Join" : "Leave"}
-          </button>
+          {!membership.isMember && (
+            <button 
+              className="join-button"
+              onClick={handleJoinLeaveRSO}
+              disabled={!org.is_active || actionLoading}
+            >
+              {actionLoading ? 'Processing...' : 'Join RSO'}
+            </button>
+          )}
+          
+          {membership.isMember && (
+            <>
+              <h3>Members</h3>
+              <div className="members-list">
+                {members.length === 0 ? (
+                  <p>Loading members...</p>
+                ) : (
+                  <table className="members-table">
+                    <thead>
+                      <tr>
+                        <th>Username</th>
+                        <th>Role</th>
+                        <th>Joined</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {members.map(member => (
+                        <tr key={member.user_id} className={member.is_admin ? 'admin-row' : ''}>
+                          <td>{member.username}</td>
+                          <td>{member.rso_role}</td>
+                          <td>{member.membership_duration}</td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                )}
+              </div>
+              
+              {!membership.isAdmin && (
+                <button 
+                  className="leave-button"
+                  onClick={handleJoinLeaveRSO}
+                  disabled={actionLoading}
+                >
+                  {actionLoading ? 'Processing...' : 'Leave RSO'}
+                </button>
+              )}
+            </>
+          )}
         </div>
       </div>
     </>

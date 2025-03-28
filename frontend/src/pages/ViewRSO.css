@@ -1,40 +1,137 @@
 .view-rso-container {
-  max-width: 800px;
+  max-width: 900px;
   margin: 2rem auto;
-  padding: 0 1rem;
+  padding: 1rem;
 }
 
-.page-title {
-  text-align: center;
-  margin-bottom: 2rem;
-  text-decoration: underline;
-}
-
-.view-rso-card {
-  background-color: #d3d3d3;
-  border: 2px solid #7ec0ee;
-  border-radius: 10px;
-  padding: 2rem;
-  box-shadow: 0 2px 5px rgba(0, 0, 0, 0.1);
-}
-
-.rso-name, .rso-admin {
+.back-navigation {
   margin-bottom: 1rem;
 }
 
-.join-button, .leave-button {
-  padding: 0.5rem 1.5rem;
+.back-button {
+  background-color: #6c757d;
+  color: white;
   border: none;
   border-radius: 4px;
+  padding: 0.5rem 1rem;
+  font-size: 0.9rem;
   cursor: pointer;
-  font-weight: bold;
+  transition: background-color 0.2s;
+}
+
+.back-button:hover {
+  background-color: #5a6268;
+}
+
+.page-title {
+  margin-bottom: 2rem;
+  color: #333;
+  text-align: center;
+}
+
+.view-rso-card {
+  background-color: white;
+  border-radius: 8px;
+  padding: 2rem;
+  box-shadow: 0 2px 6px rgba(0,0,0,0.1);
+}
+
+.rso-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  margin-bottom: 1.5rem;
+  padding-bottom: 1rem;
+  border-bottom: 1px solid #eee;
+}
+
+.rso-badges {
+  display: flex;
+  gap: 0.5rem;
+}
+
+.badge {
+  display: inline-block;
+  padding: 0.25rem 0.5rem;
+  border-radius: 4px;
+  font-size: 0.8rem;
+  font-weight: 600;
+}
+
+.admin-badge {
+  background-color: #4285f4;
+  color: white;
+}
+
+.status-badge {
+  background-color: #e9ecef;
+  color: #495057;
+}
+
+.status-badge.active {
+  background-color: #28a745;
+  color: white;
+}
+
+.status-badge.inactive {
+  background-color: #dc3545;
+  color: white;
+}
+
+.rso-name {
+  margin-top: 0;
+  font-size: 1.8rem;
+}
+
+.rso-description {
+  margin: 1rem 0;
+  line-height: 1.6;
+  white-space: pre-line;
+}
+
+.rso-meta {
+  margin: 1rem 0;
+  padding: 1rem;
+  background-color: #f8f9fa;
+  border-radius: 8px;
+}
+
+.rso-meta p {
+  margin: 0.5rem 0;
+}
+
+.pending-approval {
+  color: #fd7e14;
+  font-style: italic;
   margin-top: 1rem;
-  transition: background-color 0.3s;
+}
+
+.needs-members {
+  color: #dc3545;
+  font-style: italic;
+  margin-top: 1rem;
+}
+
+.join-button, .leave-button {
+  display: block;
+  width: 100%;
+  padding: 0.75rem;
+  margin-top: 1.5rem;
+  border: none;
+  border-radius: 4px;
+  font-size: 1rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: background-color 0.2s;
 }
 
 .join-button {
-  background-color: #28a745;
+  background-color: #4285f4;
   color: white;
+}
+
+.join-button:hover:not(:disabled) {
+  background-color: #3367d6;
 }
 
 .leave-button {
@@ -42,20 +139,51 @@
   color: white;
 }
 
-.join-button:hover {
-  background-color: #218838;
+.leave-button:hover:not(:disabled) {
+  background-color: #c82333;
 }
 
-.leave-button:hover {
-  background-color: #c82333;
+.join-button:disabled, .leave-button:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+.members-list {
+  margin: 1.5rem 0;
+}
+
+.members-table {
+  width: 100%;
+  border-collapse: collapse;
+  margin-bottom: 1.5rem;
+}
+
+.members-table th {
+  text-align: left;
+  padding: 0.75rem;
+  background-color: #f8f9fa;
+  border-bottom: 2px solid #dee2e6;
+}
+
+.members-table td {
+  padding: 0.75rem;
+  border-bottom: 1px solid #dee2e6;
+}
+
+.members-table .admin-row {
+  background-color: #f0f7ff;
 }
 
 .loading, .error, .not-found {
   text-align: center;
+  padding: 2rem;
   margin-top: 2rem;
-  font-size: 1.2rem;
 }
 
 .error {
   color: #dc3545;
+}
+
+.not-found {
+  color: #6c757d;
 } 

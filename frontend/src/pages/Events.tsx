@@ -29,7 +29,7 @@ interface User {
 type FilterType = 'all' | 'public' | 'private';
 
 const Events: React.FC = () => {
-  const [events, setEvents] = useState<Event[]>([]);
+  const [_, setEvents] = useState<Event[]>([]);
   const [filteredEvents, setFilteredEvents] = useState<Event[]>([]);
   const [activeFilter, setActiveFilter] = useState<FilterType>('all');
   const [loading, setLoading] = useState<boolean>(true);
@@ -171,17 +171,17 @@ const Events: React.FC = () => {
               <div key={event.event_id} className={`event-card ${event.event_type}`}>
                 <div className="event-type-tag">{event.event_type}</div>
                 <h2 className="event-name">{event.event_name}</h2>
-                {event.avg_rating && (
+                {event.avg_rating !== null && event.avg_rating !== undefined && (
                   <div className="event-rating">
                     <span className="rating-stars">
                       {Array.from({ length: 5 }).map((_, i) => (
                         <span 
                           key={i} 
-                          className={`star ${i < Math.round(event.avg_rating || 0) ? 'filled' : ''}`}
+                          className={`star ${i < Math.round(typeof event.avg_rating === 'number' ? event.avg_rating : 0) ? 'filled' : ''}`}
                         >★</span>
                       ))}
                     </span>
-                    <span className="rating-value">({event.avg_rating.toFixed(1)})</span>
+                    <span className="rating-value">({typeof event.avg_rating === 'number' ? event.avg_rating.toFixed(1) : '0.0'})</span>
                   </div>
                 )}
                 <p className="event-description">
@@ -199,7 +199,7 @@ const Events: React.FC = () => {
                   <p><strong>Category:</strong> {event.event_category}</p>
                 </div>
                 <Link to={`/events/${event.event_id}`} className="view-details-button">
-                  View Details
+                  View
                 </Link>
               </div>
             ))

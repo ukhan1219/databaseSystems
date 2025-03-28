@@ -25,8 +25,8 @@ interface Comment {
   user_id: number;
   username: string;
   event_id: number;
-  rating: number;
-  text: string;
+  rating_value?: number;
+  comment_text: string;
   created_at: string;
   updated_at: string;
 }
@@ -48,9 +48,10 @@ const ViewEvent: React.FC = () => {
   const [user, setUser] = useState<User | null>(null);
   
   // Comment form state
+  const [editingComment, setEditingComment] = useState<Comment | null>(null);
+  const [editCommentText, setEditCommentText] = useState<string>(''); // For inline editing
   const [newComment, setNewComment] = useState<string>('');
   const [rating, setRating] = useState<number>(0);
-  const [editingComment, setEditingComment] = useState<Comment | null>(null);
 
   // First fetch the current user
   useEffect(() => {
@@ -83,17 +84,23 @@ const ViewEvent: React.FC = () => {
       if (!user || !id) return;
 
       try {
+        console.log("Fetching event with ID:", id);
         const eventResponse = await fetch(`http://localhost:5001/api/events/${id}`, {
           credentials: 'include'
         });
         
         if (!eventResponse.ok) {
-          throw new Error('Failed to fetch event details');
+          console.error("Error fetching event:", eventResponse.status, eventResponse.statusText);
+          const errorText = await eventResponse.text();
+          console.error("Error response:", errorText);
+          throw new Error(`Failed to fetch event details: ${eventResponse.status}`);
         }
         
         const eventData = await eventResponse.json();
+        console.log("Event data received:", eventData);
+        
         if (!eventData.event) {
-          throw new Error('Event not found');
+          throw new Error('Event not found in response');
         }
         
         setEvent(eventData.event);
@@ -106,27 +113,38 @@ const ViewEvent: React.FC = () => {
           return;
         }
         
-        if (eventType === 'rso') {
-          // Check if user is a member of this RSO - this check should be done on the backend
-          // but we'll do a client-side check as well
-          const response = await fetch(`http://localhost:5001/api/orgs/check-member/${eventData.event.rso_id}`, {
-            credentials: 'include'
-          });
-          
-          if (!response.ok) {
-            navigate('/events');
-            return;
+        if (eventType === 'rso' && eventData.event.rso_id) {
+          console.log("Checking RSO membership for RSO ID:", eventData.event.rso_id);
+          // This check is already handled by the backend when fetching the event
+          // The backend will not return the event if the user doesn't have access
+          // This is just an additional safety check
+          try {
+            const response = await fetch(`http://localhost:5001/api/rsos/${eventData.event.rso_id}/check-member`, {
+              credentials: 'include'
+            });
+            
+            if (!response.ok) {
+              console.error("Not a member of this RSO:", response.status);
+              navigate('/events');
+              return;
+            }
+          } catch (err) {
+            console.error("Error checking RSO membership:", err);
+            // Continue without redirecting - backend already validated access
           }
         }
         
         // Fetch comments
-        const commentsResponse = await fetch(`http://localhost:5001/api/events/${id}/comments`, {
+        const commentsResponse = await fetch(`http://localhost:5001/api/events/${id}/comment`, {
           credentials: 'include'
         });
         
         if (commentsResponse.ok) {
           const commentsData = await commentsResponse.json();
+          console.log("Comments data:", commentsData);
           setComments(commentsData.comments || []);
+        } else {
+          console.error("Failed to fetch comments:", commentsResponse.status);
         }
         
         setLoading(false);
@@ -152,81 +170,91 @@ const ViewEvent: React.FC = () => {
   const handleSubmitComment = async (e: React.FormEvent) => {
     e.preventDefault();
     
-    if (rating === 0) {
-      setError('Please select a rating');
+    // Validate comment
+    if (newComment.trim() === '') {
+      setError('Please enter a comment');
       return;
     }
     
     try {
-      if (editingComment) {
-        // Update existing comment
-        const response = await fetch(`http://localhost:5001/api/events/${id}/comments/${editingComment.comment_id}`, {
-          method: 'PUT',
-          credentials: 'include',
-          headers: {
-            'Content-Type': 'application/json',
-          },
-          body: JSON.stringify({
-            rating,
-            text: newComment,
-          }),
-        });
+      // Add new comment
+      const commentResponse = await fetch(`http://localhost:5001/api/events/${id}/comment`, {
+        method: 'POST',
+        credentials: 'include',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          comment_text: newComment,
+        }),
+      });
 
-        if (!response.ok) {
-          throw new Error('Failed to update comment');
-        }
-        
-        // Update the comment in the local state
-        setComments(comments.map(comment => 
-          comment.comment_id === editingComment.comment_id 
-            ? { ...comment, rating, text: newComment, updated_at: new Date().toISOString() } 
-            : comment
-        ));
-        
-        // Clear editing state
-        setEditingComment(null);
-      } else {
-        // Add new comment
-        const response = await fetch(`http://localhost:5001/api/events/${id}/comments`, {
+      if (!commentResponse.ok) {
+        const errorText = await commentResponse.text();
+        console.error("Add comment error:", errorText);
+        throw new Error(`Failed to submit comment: ${commentResponse.status}`);
+      }
+      
+      // Only add rating if user provided one
+      if (rating > 0) {
+        const rateResponse = await fetch(`http://localhost:5001/api/events/${id}/rate`, {
           method: 'POST',
           credentials: 'include',
           headers: {
             'Content-Type': 'application/json',
           },
           body: JSON.stringify({
-            rating,
-            text: newComment,
+            rating_value: rating,
           }),
         });
-
-        if (!response.ok) {
-          throw new Error('Failed to submit comment');
-        }
-
-        const data = await response.json();
         
-        if (data.comment) {
-          // Add the new comment to the local state
-          setComments([...comments, data.comment]);
-          
-          // Update the event's average rating if returned
-          if (data.avg_rating && event) {
-            setEvent({
-              ...event,
-              avg_rating: data.avg_rating
-            });
-          }
+        if (!rateResponse.ok) {
+          console.error("Failed to add rating:", await rateResponse.text());
+        }
+      }
+
+      const commentData = await commentResponse.json();
+      
+      // Refresh comments to get updated data
+      try {
+        const commentsResponse = await fetch(`http://localhost:5001/api/events/${id}/comment`, {
+          credentials: 'include'
+        });
+        
+        if (commentsResponse.ok) {
+          const commentsData = await commentsResponse.json();
+          setComments(commentsData.comments || []);
         } else {
-          // Fallback: refresh comments
-          const commentsResponse = await fetch(`http://localhost:5001/api/events/${id}/comments`, {
-            credentials: 'include'
-          });
-          
-          if (commentsResponse.ok) {
-            const commentsData = await commentsResponse.json();
-            setComments(commentsData.comments || []);
+          console.error("Failed to refresh comments:", commentsResponse.status);
+          // Add the new comment to the list manually if refresh fails
+          if (commentData.commentId && user) {
+            const newCommentObj: Comment = {
+              comment_id: commentData.commentId,
+              user_id: user.user_id,
+              username: user.username,
+              event_id: parseInt(id || '0'),
+              rating_value: rating > 0 ? rating : undefined,
+              comment_text: newComment,
+              created_at: new Date().toISOString(),
+              updated_at: new Date().toISOString()
+            };
+            setComments([...comments, newCommentObj]);
           }
         }
+        
+        // Refresh the event to get the updated average rating
+        const eventResponse = await fetch(`http://localhost:5001/api/events/${id}`, {
+          credentials: 'include'
+        });
+        
+        if (eventResponse.ok) {
+          const eventData = await eventResponse.json();
+          if (eventData.event && event) {
+            setEvent(eventData.event);
+          }
+        }
+      } catch (err) {
+        console.error("Error refreshing data:", err);
       }
 
       // Reset form
@@ -240,8 +268,8 @@ const ViewEvent: React.FC = () => {
 
   const handleEditComment = (comment: Comment) => {
     setEditingComment(comment);
-    setNewComment(comment.text);
-    setRating(comment.rating);
+    setEditCommentText(comment.comment_text);
+    setRating(comment.rating_value || 0);
     
     // Scroll to the comment form
     document.querySelector('.comment-form')?.scrollIntoView({ behavior: 'smooth' });
@@ -249,8 +277,86 @@ const ViewEvent: React.FC = () => {
 
   const handleCancelEdit = () => {
     setEditingComment(null);
-    setNewComment('');
+    setEditCommentText('');
     setRating(0);
+  };
+
+  const handleSaveComment = async (commentId: number) => {
+    if (!editingComment) return;
+    
+    try {
+      // First update the comment text
+      const commentResponse = await fetch(`http://localhost:5001/api/events/${id}/comment`, {
+        method: 'POST',  // Use POST since we don't have a PUT endpoint
+        credentials: 'include',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          comment_text: editCommentText,
+          comment_id: commentId  // Include comment_id so backend knows it's an update
+        }),
+      });
+
+      if (!commentResponse.ok) {
+        const errorText = await commentResponse.text();
+        console.error("Update comment error:", errorText);
+        throw new Error(`Failed to update comment: ${commentResponse.status}`);
+      }
+      
+      // Update rating if provided
+      if (rating > 0 || rating !== editingComment.rating_value) {
+        const rateResponse = await fetch(`http://localhost:5001/api/events/${id}/rate`, {
+          method: 'POST',
+          credentials: 'include',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({
+            rating_value: rating,
+          }),
+        });
+        
+        if (!rateResponse.ok) {
+          console.error("Failed to update rating:", await rateResponse.text());
+        }
+      }
+      
+      // Update comment in local state
+      setComments(comments.map(comment => 
+        comment.comment_id === commentId 
+          ? { 
+              ...comment, 
+              comment_text: editCommentText,
+              rating_value: rating > 0 ? rating : comment.rating_value,
+              updated_at: new Date().toISOString() 
+            } 
+          : comment
+      ));
+      
+      // Reset edit state
+      setEditingComment(null);
+      setEditCommentText('');
+      setRating(0);
+      
+      // Refresh the event to get updated average rating
+      try {
+        const eventResponse = await fetch(`http://localhost:5001/api/events/${id}`, {
+          credentials: 'include'
+        });
+        
+        if (eventResponse.ok) {
+          const eventData = await eventResponse.json();
+          if (eventData.event && event) {
+            setEvent(eventData.event);
+          }
+        }
+      } catch (e) {
+        console.error("Error refreshing event data:", e);
+      }
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'An error occurred');
+    }
   };
 
   const handleDeleteComment = async (commentId: number) => {
@@ -261,7 +367,9 @@ const ViewEvent: React.FC = () => {
       });
 
       if (!response.ok) {
-        throw new Error('Failed to delete comment');
+        const errorText = await response.text();
+        console.error("Delete comment error:", errorText);
+        throw new Error(`Failed to delete comment: ${response.status}`);
       }
 
       // Remove comment from state
@@ -272,17 +380,20 @@ const ViewEvent: React.FC = () => {
         handleCancelEdit();
       }
       
-      // Refresh the average rating if provided in the response
+      // Refresh the event to get the updated average rating
       try {
-        const data = await response.json();
-        if (data.avg_rating !== undefined && event) {
-          setEvent({
-            ...event,
-            avg_rating: data.avg_rating
-          });
+        const eventResponse = await fetch(`http://localhost:5001/api/events/${id}`, {
+          credentials: 'include'
+        });
+        
+        if (eventResponse.ok) {
+          const eventData = await eventResponse.json();
+          if (eventData.event && event) {
+            setEvent(eventData.event);
+          }
         }
       } catch (e) {
-        // Ignore JSON parse errors
+        console.error("Error refreshing event after delete:", e);
       }
     } catch (err) {
       setError(err instanceof Error ? err.message : 'An error occurred');
@@ -325,21 +436,27 @@ const ViewEvent: React.FC = () => {
     <>
       <Header />
       <div className="view-event-container">
+        <div className="back-navigation">
+          <button className="back-button" onClick={() => navigate('/events')}>
+            &larr; Back to Events
+          </button>
+        </div>
+        
         <div className="event-header">
           <h1 className="event-title">{event.event_name}</h1>
           <div className="event-type-badge">{event.event_type}</div>
           
-          {event.avg_rating !== undefined && (
+          {event.avg_rating !== undefined && event.avg_rating !== null && (
             <div className="event-average-rating">
               <span className="avg-rating-stars">
                 {Array.from({ length: 5 }).map((_, i) => (
                   <span 
                     key={i} 
-                    className={`star ${i < Math.round(event.avg_rating || 0) ? 'filled' : ''}`}
+                    className={`star ${i < Math.round(typeof event.avg_rating === 'number' ? event.avg_rating : 0) ? 'filled' : ''}`}
                   >★</span>
                 ))}
               </span>
-              <span className="avg-rating-value">({event.avg_rating.toFixed(1)})</span>
+              <span className="avg-rating-value">({typeof event.avg_rating === 'number' ? event.avg_rating.toFixed(1) : '0.0'})</span>
             </div>
           )}
         </div>
@@ -371,10 +488,10 @@ const ViewEvent: React.FC = () => {
             <h2>Reviews & Comments</h2>
             
             <form onSubmit={handleSubmitComment} className="comment-form">
-              <h3>{editingComment ? 'Edit Your Review' : 'Add Your Review'}</h3>
+              <h3>Add Your Review</h3>
               
               <div className="rating-control">
-                <p>Your Rating:</p>
+                <p>Your Rating: <span className="optional-text">(optional)</span></p>
                 <div className="star-rating">
                   {[1, 2, 3, 4, 5].map((star) => (
                     <button
@@ -387,6 +504,15 @@ const ViewEvent: React.FC = () => {
                     </button>
                   ))}
                 </div>
+                {rating > 0 && (
+                  <button 
+                    type="button" 
+                    className="clear-rating-button" 
+                    onClick={() => setRating(0)}
+                  >
+                    Clear rating
+                  </button>
+                )}
               </div>
               
               <div className="comment-control">
@@ -401,20 +527,7 @@ const ViewEvent: React.FC = () => {
               </div>
               
               <div className="form-actions">
-                {editingComment ? (
-                  <>
-                    <button type="submit" className="submit-button">Update</button>
-                    <button 
-                      type="button" 
-                      onClick={handleCancelEdit}
-                      className="cancel-button"
-                    >
-                      Cancel
-                    </button>
-                  </>
-                ) : (
-                  <button type="submit" className="submit-button">Submit</button>
-                )}
+                <button type="submit" className="submit-button">Submit</button>
               </div>
             </form>
             
@@ -437,33 +550,85 @@ const ViewEvent: React.FC = () => {
                       </div>
                       
                       <div className="comment-rating">
-                        {Array.from({ length: 5 }).map((_, i) => (
-                          <span 
-                            key={i} 
-                            className={`star ${i < comment.rating ? 'filled' : ''}`}
-                          >★</span>
-                        ))}
+                        {editingComment?.comment_id === comment.comment_id ? (
+                          <div className="inline-rating-edit">
+                            {[1, 2, 3, 4, 5].map((star) => (
+                              <button
+                                key={star}
+                                type="button"
+                                className={`star-button inline ${rating >= star ? 'selected' : ''}`}
+                                onClick={() => handleRatingChange(star)}
+                              >
+                                ★
+                              </button>
+                            ))}
+                            {rating > 0 && (
+                              <button 
+                                type="button" 
+                                className="clear-rating-button" 
+                                onClick={() => setRating(0)}
+                              >
+                                clear
+                              </button>
+                            )}
+                          </div>
+                        ) : (
+                          Array.from({ length: 5 }).map((_, i) => (
+                            <span 
+                              key={i} 
+                              className={`star ${i < (comment.rating_value || 0) ? 'filled' : ''}`}
+                            >★</span>
+                          ))
+                        )}
                       </div>
                     </div>
                     
                     <div className="comment-body">
-                      <p>{comment.text}</p>
+                      {editingComment?.comment_id === comment.comment_id ? (
+                        <textarea
+                          className="inline-edit-textarea"
+                          value={editCommentText}
+                          onChange={(e) => setEditCommentText(e.target.value)}
+                          rows={3}
+                        ></textarea>
+                      ) : (
+                        <p>{comment.comment_text}</p>
+                      )}
                     </div>
                     
                     {isUserComment(comment) && (
                       <div className="comment-actions">
-                        <button
-                          onClick={() => handleEditComment(comment)}
-                          className="edit-button"
-                        >
-                          Edit
-                        </button>
-                        <button
-                          onClick={() => handleDeleteComment(comment.comment_id)}
-                          className="delete-button"
-                        >
-                          Delete
-                        </button>
+                        {editingComment?.comment_id === comment.comment_id ? (
+                          <>
+                            <button
+                              onClick={() => handleSaveComment(comment.comment_id)}
+                              className="save-button"
+                            >
+                              Save
+                            </button>
+                            <button 
+                              onClick={handleCancelEdit}
+                              className="cancel-button"
+                            >
+                              Cancel
+                            </button>
+                          </>
+                        ) : (
+                          <>
+                            <button
+                              onClick={() => handleEditComment(comment)}
+                              className="edit-button"
+                            >
+                              Edit
+                            </button>
+                            <button
+                              onClick={() => handleDeleteComment(comment.comment_id)}
+                              className="delete-button"
+                            >
+                              Delete
+                            </button>
+                          </>
+                        )}
                       </div>
                     )}
                   </div>

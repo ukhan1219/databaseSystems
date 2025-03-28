@@ -9,6 +9,7 @@ interface RSO {
   description: string;
   is_active: boolean;
   admin_user_id: number;
+  member_count: number;
 }
 
 interface Event {
@@ -165,6 +166,13 @@ const RSOAdmin: React.FC = () => {
       return;
     }
     
+    // Check if the selected RSO is active
+    const selectedRSOObj = adminRSOs.find(rso => rso.rso_id === selectedRSO);
+    if (selectedRSOObj && !selectedRSOObj.is_active) {
+      setFormError('Cannot create events for inactive RSOs. The RSO needs at least 5 members and must be approved by a super admin.');
+      return;
+    }
+    
     // Form validation
     if (!eventName || !eventCategory || !eventDescription || !eventDate || 
         !eventTime || !locationName || !contactEmail) {
@@ -274,6 +282,13 @@ const RSOAdmin: React.FC = () => {
                 
                 {formError && <div className="form-error">{formError}</div>}
                 {formSuccess && <div className="form-success">{formSuccess}</div>}
+                
+                {selectedRSO && adminRSOs.find(rso => rso.rso_id === selectedRSO && !rso.is_active) && (
+                  <div className="rso-inactive-warning">
+                    <p>This RSO is currently inactive. You need at least 5 members and approval from a super admin to create events.</p>
+                    <p>Current member count: {adminRSOs.find(rso => rso.rso_id === selectedRSO)?.member_count || '?'}</p>
+                  </div>
+                )}
                 
                 <form onSubmit={handleSubmit} className="event-form">
                   <div className="form-group">

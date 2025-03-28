@@ -29,11 +29,14 @@ router.get('/', async function(req, res, next) {
       
       const universityId = userResult[0].university_id;
       
-      // Get all active RSOs in user's university
+      // Get all RSOs in user's university (both active and inactive)
       const queryString = `
-        SELECT r.* FROM rso r
+        SELECT r.*, 
+               (SELECT COUNT(*) FROM rso_membership rm WHERE rm.rso_id = r.rso_id) as member_count 
+        FROM rso r
         JOIN users u ON r.admin_user_id = u.user_id
-        WHERE r.is_active = TRUE AND u.university_id = ?
+        WHERE u.university_id = ?
+        ORDER BY r.is_active DESC, r.rso_name ASC
       `;
 
       const [rows] = await pool.query(queryString, [universityId]);
@@ -469,6 +472,91 @@ router.post('/:rsoid/join', async function(req, res, next) {
     return res.status(500).json({
       success: false,
       message: "Failed to join RSO: " + err.message
+    });
+  }
+});
+
+/* POST leave RSO */
+router.post('/:rsoid/leave', async function(req, res, next) {
+  const rsoId = req.params.rsoid;
+  
+  if(!req.session.username) {
+    return res.status(401).json({
+      success: false,
+      message: "Not logged in"
+    });
+  }
+  
+  try {
+    // Get user ID
+    const userQuery = "SELECT user_id FROM users WHERE username = ?";
+    const [userResult] = await pool.query(userQuery, [req.session.username]);
+    
+    if (!userResult.length) {
+      return res.status(404).json({
+        success: false,
+        message: "User not found"
+      });
+    }
+    
+    const userId = userResult[0].user_id;
+    
+    // Check if RSO exists
+    const rsoQuery = "SELECT * FROM rso WHERE rso_id = ?";
+    const [rsoResult] = await pool.query(rsoQuery, [rsoId]);
+    
+    if (!rsoResult.length) {
+      return res.status(404).json({
+        success: false,
+        message: "RSO not found"
+      });
+    }
+    
+    // Check if user is the RSO admin
+    if (rsoResult[0].admin_user_id === userId) {
+      return res.status(403).json({
+        success: false,
+        message: "RSO admins cannot leave their RSOs. Transfer admin role or delete the RSO."
+      });
+    }
+    
+    // Check if user is a member
+    const memberQuery = "SELECT * FROM rso_membership WHERE user_id = ? AND rso_id = ?";
+    const [memberResult] = await pool.query(memberQuery, [userId, rsoId]);
+    
+    if (!memberResult.length) {
+      return res.status(404).json({
+        success: false,
+        message: "You are not a member of this RSO"
+      });
+    }
+    
+    // Remove the user from the RSO
+    const leaveQuery = "DELETE FROM rso_membership WHERE user_id = ? AND rso_id = ?";
+    await pool.query(leaveQuery, [userId, rsoId]);
+    
+    // Check if RSO still has enough members to remain active
+    const countQuery = "SELECT COUNT(*) as member_count FROM rso_membership WHERE rso_id = ?";
+    const [countResult] = await pool.query(countQuery, [rsoId]);
+    const memberCount = countResult[0].member_count;
+    
+    // If membership drops below 5, set RSO to inactive if it's currently active
+    if (memberCount < 5 && rsoResult[0].is_active) {
+      const updateQuery = "UPDATE rso SET is_active = FALSE WHERE rso_id = ?";
+      await pool.query(updateQuery, [rsoId]);
+    }
+    
+    return res.status(200).json({
+      success: true,
+      message: "Successfully left the RSO",
+      memberCount: memberCount
+    });
+    
+  } catch (err) {
+    console.log(err);
+    return res.status(500).json({
+      success: false,
+      message: "Failed to leave RSO: " + err.message
     });
   }
 });

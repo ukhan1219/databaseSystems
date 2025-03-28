@@ -4,6 +4,25 @@
   padding: 0 1rem;
 }
 
+.back-navigation {
+  margin-bottom: 1.5rem;
+}
+
+.back-button {
+  background-color: #6c757d;
+  color: white;
+  border: none;
+  border-radius: 4px;
+  padding: 0.5rem 1rem;
+  font-size: 0.9rem;
+  cursor: pointer;
+  transition: background-color 0.2s;
+}
+
+.back-button:hover {
+  background-color: #5a6268;
+}
+
 .event-header {
   margin-bottom: 2rem;
   padding-bottom: 1rem;
@@ -352,4 +371,64 @@
   .comment-actions {
     justify-content: center;
   }
+}
+
+.optional-text {
+  font-size: 0.8em;
+  color: #777;
+  font-style: italic;
+  margin-left: 5px;
+}
+
+.clear-rating-button {
+  background: none;
+  border: none;
+  color: #666;
+  text-decoration: underline;
+  cursor: pointer;
+  font-size: 0.8em;
+  margin-top: 5px;
+  padding: 0;
+}
+
+.clear-rating-button:hover {
+  color: #ff5252;
+}
+
+.inline-edit-textarea {
+  width: 100%;
+  min-height: 80px;
+  padding: 10px;
+  border: 1px solid #ddd;
+  border-radius: 4px;
+  font-family: inherit;
+  font-size: 1rem;
+  resize: vertical;
+  margin-bottom: 10px;
+}
+
+.inline-rating-edit {
+  display: flex;
+  align-items: center;
+  margin-bottom: 10px;
+}
+
+.star-button.inline {
+  font-size: 1.2rem;
+  margin-right: 2px;
+}
+
+.save-button {
+  background-color: #4caf50;
+  color: white;
+  border: none;
+  border-radius: 4px;
+  padding: 0.4rem 0.8rem;
+  font-size: 0.85rem;
+  cursor: pointer;
+  transition: background-color 0.2s;
+}
+
+.save-button:hover {
+  background-color: #388e3c;
 } 

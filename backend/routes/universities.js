@@ -106,4 +106,39 @@ router.post('/', async function(req, res, next) {
   }
 });
 
+/* GET university by ID */
+router.get('/:id', async function(req, res, next) {
+  const universityId = req.params.id;
+
+  if(!req.session.username) {
+    return res.status(401).json({
+      success: false,
+      message: "Not logged in"
+    });
+  }
+
+  try {
+    const queryString = "SELECT * FROM university WHERE university_id = ?";
+    const [rows] = await pool.query(queryString, [universityId]);
+    
+    if (rows.length === 0) {
+      return res.status(404).json({
+        success: false,
+        message: "University not found"
+      });
+    }
+    
+    res.status(200).json({
+      success: true,
+      university: rows[0]
+    });
+  } catch (err) {
+    console.log(err);
+    return res.status(500).json({
+      success: false,
+      message: "Failed to fetch university: " + err.message
+    });
+  }
+});
+
 module.exports = router;

@@ -228,12 +228,30 @@ const RSOs: React.FC = () => {
           <h1 className="page-title">
             {showSearchView ? 'Find RSOs to Join' : 'Your RSOs'}
           </h1>
-          <button 
-            className="toggle-view-button"
-            onClick={toggleView}
-          >
-            {showSearchView ? 'Back to Your RSOs' : 'Find RSOs to Join'}
-          </button>
+          <div className="rsos-actions">
+            <button 
+              className="create-rso-button"
+              onClick={() => navigate('/rsos/create')}
+            >
+              Create New RSO
+            </button>
+            {userRSOs.length > 0 && !showSearchView && (
+              <button 
+                className="toggle-view-button"
+                onClick={toggleView}
+              >
+                Find RSOs to Join
+              </button>
+            )}
+            {showSearchView && (
+              <button 
+                className="toggle-view-button"
+                onClick={toggleView}
+              >
+                Back to Your RSOs
+              </button>
+            )}
+          </div>
         </div>
         
         {!showSearchView ? (
@@ -298,7 +316,7 @@ const RSOs: React.FC = () => {
                                 <p><strong>Location:</strong> {event.location_name}</p>
                               </div>
                               <Link to={`/events/${event.event_id}`} className="view-details-button">
-                                View Event Details
+                                View
                               </Link>
                             </div>
                           ))}
@@ -323,17 +341,26 @@ const RSOs: React.FC = () => {
                 availableRSOs.map((rso) => (
                   <div key={rso.rso_id} className="rso-card">
                     <h2 className="rso-name">{rso.rso_name}</h2>
+                    <div className="rso-status-badge">
+                      <span className={`badge status-badge ${rso.is_active ? 'active' : 'inactive'}`}>
+                        {rso.is_active ? 'Active' : 'Inactive'}
+                      </span>
+                    </div>
                     {rso.description && <p className="rso-description">{rso.description}</p>}
-                    <p className="rso-status">{rso.is_active ? 'Active' : 'Inactive'}</p>
                     {rso.member_count && <p className="rso-members">Members: {rso.member_count}</p>}
+                    
+                    {!rso.is_active && (
+                      <div className="rso-inactive-info">
+                        <p>This RSO needs at least 5 members to be approved by a super admin.</p>
+                      </div>
+                    )}
                     
                     <div className="rso-actions">
                       <button 
                         onClick={() => handleJoinRSO(rso.rso_id)}
                         className="join-button"
-                        disabled={!rso.is_active}
                       >
-                        {rso.is_active ? 'Join RSO' : 'Inactive RSO'}
+                        Join RSO
                       </button>
                       <Link to={`/rsos/${rso.rso_id}`} className="view-details-button">
                         View Details
