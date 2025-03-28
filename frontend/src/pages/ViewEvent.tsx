@@ -46,6 +46,8 @@ const ViewEvent: React.FC = () => {
   const [loading, setLoading] = useState<boolean>(true);
   const [error, setError] = useState<string | null>(null);
   const [user, setUser] = useState<User | null>(null);
+  const [userRated, setUserRated] = useState<boolean>(false);
+  const [userRating, setUserRating] = useState<number>(0);
   
   // Comment form state
   const [editingComment, setEditingComment] = useState<Comment | null>(null);
@@ -77,6 +79,21 @@ const ViewEvent: React.FC = () => {
 
     fetchUser();
   }, [navigate]);
+
+  // Check localStorage for rating even before API calls
+  useEffect(() => {
+    // Try to get rating from localStorage first for immediate UI update
+    if (id) {
+      const savedRating = localStorage.getItem(`event_${id}_rating`);
+      const hasRated = localStorage.getItem(`event_${id}_has_rated`);
+      
+      if (hasRated === 'true' && savedRating) {
+        setUserRated(true);
+        setUserRating(Number(savedRating));
+        setRating(Number(savedRating));
+      }
+    }
+  }, [id]);
 
   // Then fetch event details and comments
   useEffect(() => {
@@ -142,10 +159,13 @@ const ViewEvent: React.FC = () => {
         if (commentsResponse.ok) {
           const commentsData = await commentsResponse.json();
           console.log("Comments data:", commentsData);
-          setComments(commentsData.comments || []);
+          setComments(preserveCommentOrder(commentsData.comments || []));
         } else {
           console.error("Failed to fetch comments:", commentsResponse.status);
         }
+        
+        // Check if the user has already rated this event
+        await fetchUserRating();
         
         setLoading(false);
       } catch (err) {
@@ -179,6 +199,29 @@ const ViewEvent: React.FC = () => {
       }
     } catch (err) {
       console.error("Error refreshing event data:", err);
+    }
+  };
+
+  // Fetch user's current rating for this event
+  const fetchUserRating = async () => {
+    if (!id) return;
+    
+    try {
+      // Since the GET endpoint for user rating doesn't exist,
+      // we'll rely on localStorage for the UI and handle server state with the rate POST endpoint
+      const savedRating = localStorage.getItem(`event_${id}_rating`);
+      const hasRated = localStorage.getItem(`event_${id}_has_rated`);
+      
+      if (hasRated === 'true' && savedRating) {
+        setUserRated(true);
+        setUserRating(Number(savedRating));
+        setRating(Number(savedRating));
+      } else {
+        setUserRated(false);
+        setUserRating(0);
+      }
+    } catch (err) {
+      console.error("Error with user rating:", err);
     }
   };
 
@@ -217,28 +260,6 @@ const ViewEvent: React.FC = () => {
         console.error("Add comment error:", errorText);
         throw new Error(`Failed to submit comment: ${commentResponse.status}`);
       }
-      
-      // Only add rating if user provided one
-      if (rating > 0) {
-        const rateResponse = await fetch(`http://localhost:5001/api/events/${id}/rate`, {
-          method: 'POST',
-          credentials: 'include',
-          headers: {
-            'Content-Type': 'application/json',
-          },
-          body: JSON.stringify({
-            rating_value: rating,
-          }),
-        });
-        
-        if (!rateResponse.ok) {
-          console.error("Failed to add rating:", await rateResponse.text());
-        } else {
-          console.log("Rating updated successfully:", rating);
-          // Add a small delay to ensure the rating is processed
-          await new Promise(resolve => setTimeout(resolve, 200));
-        }
-      }
 
       const commentData = await commentResponse.json();
       
@@ -250,7 +271,7 @@ const ViewEvent: React.FC = () => {
         
         if (commentsResponse.ok) {
           const commentsData = await commentsResponse.json();
-          setComments(commentsData.comments || []);
+          setComments(preserveCommentOrder(commentsData.comments || []));
         } else {
           console.error("Failed to refresh comments:", commentsResponse.status);
           // Add the new comment to the list manually if refresh fails
@@ -260,7 +281,6 @@ const ViewEvent: React.FC = () => {
               user_id: user.user_id,
               username: user.username,
               event_id: parseInt(id || '0'),
-              rating_value: rating > 0 ? rating : undefined,
               comment_text: newComment,
               created_at: new Date().toISOString(),
               updated_at: new Date().toISOString()
@@ -268,16 +288,12 @@ const ViewEvent: React.FC = () => {
             setComments([...comments, newCommentObj]);
           }
         }
-        
-        // Refresh the event data with the updated rating
-        await refreshEventData();
       } catch (err) {
         console.error("Error refreshing data:", err);
       }
 
       // Reset form
       setNewComment('');
-      setRating(0);
       setError(null);
     } catch (err) {
       setError(err instanceof Error ? err.message : 'An error occurred');
@@ -287,10 +303,8 @@ const ViewEvent: React.FC = () => {
   const handleEditComment = (comment: Comment) => {
     setEditingComment(comment);
     setEditCommentText(comment.comment_text);
+    // Keep the current rating but don't display it in the UI
     setRating(comment.rating_value || 0);
-    
-    // Scroll to the comment form
-    document.querySelector('.comment-form')?.scrollIntoView({ behavior: 'smooth' });
   };
 
   const handleCancelEdit = () => {
@@ -303,6 +317,9 @@ const ViewEvent: React.FC = () => {
     if (!editingComment) return;
     
     try {
+      // First store the original comment's creation date to ensure we preserve it
+      const originalCreationDate = editingComment.created_at;
+      
       // Create a direct PATCH request to update the comment in the database
       const commentResponse = await fetch(`http://localhost:5001/api/events/${id}/comments/${commentId}`, {
         method: 'DELETE',  // Delete first, then we'll create a new one
@@ -315,7 +332,7 @@ const ViewEvent: React.FC = () => {
         throw new Error(`Failed to update comment: ${commentResponse.status}`);
       }
       
-      // Now create a new comment with the updated text
+      // Now create a new comment with the updated text but preserve original timestamp
       const addResponse = await fetch(`http://localhost:5001/api/events/${id}/comment`, {
         method: 'POST',
         credentials: 'include',
@@ -324,6 +341,7 @@ const ViewEvent: React.FC = () => {
         },
         body: JSON.stringify({
           comment_text: editCommentText,
+          original_timestamp: editingComment.created_at // Send original creation date to backend
         }),
       });
 
@@ -332,6 +350,10 @@ const ViewEvent: React.FC = () => {
         console.error("Add comment error:", errorText);
         throw new Error(`Failed to submit comment: ${addResponse.status}`);
       }
+      
+      // Get the new comment data including the new ID
+      const commentData = await addResponse.json();
+      console.log("New comment data after edit:", commentData);
       
       // Only add rating if user provided one
       if (rating > 0) {
@@ -354,41 +376,30 @@ const ViewEvent: React.FC = () => {
           await new Promise(resolve => setTimeout(resolve, 200));
         }
       }
-
-      const commentData = await addResponse.json();
       
-      // Refresh comments to get updated data
-      try {
-        const commentsResponse = await fetch(`http://localhost:5001/api/events/${id}/comment`, {
-          credentials: 'include'
-        });
-        
-        if (commentsResponse.ok) {
-          const commentsData = await commentsResponse.json();
-          setComments(commentsData.comments || []);
-        } else {
-          console.error("Failed to refresh comments:", commentsResponse.status);
-          // Add the new comment to the list manually if refresh fails
-          if (commentData.commentId && user) {
-            const newCommentObj: Comment = {
-              comment_id: commentData.commentId,
-              user_id: user.user_id,
-              username: user.username,
-              event_id: parseInt(id || '0'),
-              rating_value: rating > 0 ? rating : undefined,
-              comment_text: editCommentText,
-              created_at: new Date().toISOString(),
-              updated_at: new Date().toISOString()
-            };
-            setComments([...comments, newCommentObj]);
-          }
-        }
-        
-        // Refresh the event data with the updated rating
-        await refreshEventData();
-      } catch (err) {
-        console.error("Error refreshing data:", err);
+      // Manual update to comments array
+      // Remove the old comment and add the new one with original creation date
+      const updatedComments = comments.filter(c => c.comment_id !== commentId);
+      if (commentData.commentId && user) {
+        const newCommentObj: Comment = {
+          comment_id: commentData.commentId,
+          user_id: user.user_id,
+          username: user.username,
+          event_id: parseInt(id || '0'),
+          rating_value: rating > 0 ? rating : editingComment.rating_value,
+          comment_text: editCommentText,
+          created_at: originalCreationDate, // Use the saved original date
+          updated_at: new Date().toISOString()
+        };
+        updatedComments.push(newCommentObj);
+        setComments(updatedComments);
       }
+      
+      // Refresh the event data with the updated rating
+      await refreshEventData();
+
+      // Fetch the user's updated rating to ensure UI state is consistent
+      await fetchUserRating();
 
       // Reset edit state
       setEditingComment(null);
@@ -424,6 +435,107 @@ const ViewEvent: React.FC = () => {
       await refreshEventData();
     } catch (err) {
       setError(err instanceof Error ? err.message : 'An error occurred');
+    }
+  };
+
+  // Helper function to ensure comments maintain their order even after updates
+  const preserveCommentOrder = (newComments: Comment[]): Comment[] => {
+    // Get a map of existing comment IDs to their creation dates
+    const existingDates = new Map(
+      comments.map(comment => [comment.comment_id, comment.created_at])
+    );
+    
+    // For each new comment, preserve its original creation date if it existed before
+    return newComments.map(comment => {
+      const originalDate = existingDates.get(comment.comment_id);
+      if (originalDate) {
+        return { ...comment, created_at: originalDate };
+      }
+      return comment;
+    });
+  };
+
+  const handleSubmitRating = async () => {
+    if (rating === 0) {
+      setError('Please select a rating before submitting');
+      return;
+    }
+    
+    try {
+      // Store the rating in localStorage immediately to ensure persistence
+      localStorage.setItem(`event_${id}_rating`, rating.toString());
+      localStorage.setItem(`event_${id}_has_rated`, 'true');
+      
+      // Update UI state immediately for a responsive feel
+      setUserRated(true);
+      setUserRating(rating);
+      
+      const rateResponse = await fetch(`http://localhost:5001/api/events/${id}/rate`, {
+        method: 'POST',
+        credentials: 'include',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          rating_value: rating,
+        }),
+      });
+      
+      if (!rateResponse.ok) {
+        const errorText = await rateResponse.text();
+        console.error("Failed to submit rating:", errorText);
+        throw new Error(`Failed to submit rating: ${rateResponse.status}`);
+      }
+      
+      console.log("Rating submitted successfully:", rating);
+      
+      // Add a small delay to ensure the rating is processed
+      await new Promise(resolve => setTimeout(resolve, 200));
+      
+      // Refresh the event data with the updated rating
+      await refreshEventData();
+      
+      // This will update the UI and ensure localStorage is in sync with server
+      await fetchUserRating();
+      
+      // Clear any errors
+      setError(null);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'An error occurred');
+    }
+  };
+
+  const handleDeleteRating = async () => {
+    try {
+      // Update UI immediately for better responsiveness
+      setUserRated(false);
+      setUserRating(0);
+      setRating(0);
+      
+      // Clear localStorage
+      localStorage.removeItem(`event_${id}_rating`);
+      localStorage.removeItem(`event_${id}_has_rated`);
+      
+      // Since the DELETE endpoint doesn't exist, we'll have to just update the UI state
+      // and trust localStorage to track whether the user has rated
+      
+      // Refresh the event data with the updated average rating
+      await refreshEventData();
+      
+      // Clear any errors
+      setError(null);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'An error occurred');
+      
+      // On error, restore the previous state from localStorage
+      const savedRating = localStorage.getItem(`event_${id}_rating`);
+      const hasRated = localStorage.getItem(`event_${id}_has_rated`);
+      
+      if (hasRated === 'true' && savedRating) {
+        setUserRated(true);
+        setUserRating(Number(savedRating));
+        setRating(Number(savedRating));
+      }
     }
   };
 
@@ -528,35 +640,68 @@ const ViewEvent: React.FC = () => {
         </div>
         
         <div className="event-interaction">
-          <div className="comment-section">
-            <h2>Reviews & Comments</h2>
-            
-            <form onSubmit={handleSubmitComment} className="comment-form">
-              <h3>Add Your Review</h3>
-              
+
+        <div className="standalone-rating-section">
+              <h3>{userRated ? 'Your Rating' : 'Rate This Event'}</h3>
+              {userRated ? (
+                <div className="current-rating-display">
+                  <p className="your-rating-note">
+                    <span className="rating-value-display">{userRating}.0/5.0</span> 
+                    You've already rated this event. You can update or remove your rating.
+                  </p>
+                </div>
+              ) : (
+                <p className="rating-instructions">
+                  Select a star rating below to rate this event. Your rating will contribute to the overall score.
+                </p>
+              )}
               <div className="rating-control">
-                <p>Your Rating: <span className="optional-text">(optional)</span></p>
                 <div className="star-rating">
                   {[1, 2, 3, 4, 5].map((star) => (
                     <button
                       key={star}
                       type="button"
-                      className={`star-button ${rating >= star ? 'selected' : ''}`}
+                      className={`star-button large ${rating >= star ? 'selected' : ''}`}
                       onClick={() => handleRatingChange(star)}
                     >
                       ★
                     </button>
                   ))}
                 </div>
-                {rating > 0 && (
-                  <button 
-                    type="button" 
-                    className="clear-rating-button" 
-                    onClick={() => setRating(0)}
-                  >
-                    Clear rating
-                  </button>
-                )}
+                <div className="rating-actions">
+                  {rating > 0 && (
+                    <>
+                      <button 
+                        type="button" 
+                        className="submit-rating-button"
+                        onClick={handleSubmitRating}
+                      >
+                        {userRated ? 'Update Rating' : 'Submit Rating'}
+                      </button>
+                      <button 
+                        type="button" 
+                        className="clear-rating-button" 
+                        onClick={userRated ? handleDeleteRating : () => setRating(0)}
+                      >
+                        {userRated ? 'Remove Rating' : 'Clear'}
+                      </button>
+                    </>
+                  )}
+                  <p className="rating-note">Your rating contributes to the overall score but is not shown publicly</p>
+                </div>
+              </div>
+            </div>
+          
+          <div className="comment-section">
+            <h2>Comments</h2>
+            
+            
+            
+            <form onSubmit={handleSubmitComment} className="comment-form">
+              <h3>Add Your Comment</h3>
+              
+              <div className="comment-form-divider">
+                <p>Your comment will be public and visible to all users</p>
               </div>
               
               <div className="comment-control">
@@ -576,107 +721,84 @@ const ViewEvent: React.FC = () => {
             </form>
             
             <div className="comments-list">
-              <h3>All Reviews {comments.length > 0 && `(${comments.length})`}</h3>
+              <h3>Comments {comments.length > 0 && `(${comments.length})`}</h3>
               
               {comments.length === 0 ? (
-                <p className="no-comments">No reviews yet. Be the first to share your thoughts!</p>
+                <p className="no-comments">No comments yet. Be the first to share your thoughts!</p>
               ) : (
-                comments.map((comment) => (
-                  <div key={comment.comment_id} className="comment-card">
-                    <div className="comment-header">
-                      <div className="comment-user">
-                        <span className="username">{comment.username}</span>
-                        <span className="comment-date">
-                          {comment.updated_at !== comment.created_at 
-                            ? `Updated on ${formatDate(comment.updated_at)}` 
-                            : formatDate(comment.created_at)}
-                        </span>
+                // Keep comments in a fixed order based on the original creation date
+                [...comments]
+                  .sort((a, b) => new Date(a.created_at).getTime() - new Date(b.created_at).getTime()) // Sort by original comment creation date
+                  .map((comment) => (
+                    <div key={comment.comment_id} className="comment-card">
+                      <div className="comment-header">
+                        <div className="comment-user">
+                          <span className="username">{comment.username}</span>
+                          <span className="comment-date">
+                            {comment.updated_at !== comment.created_at 
+                              ? <><span className="original-date">Posted {formatDate(comment.created_at)}</span> · <span className="edit-note">Edited {formatDate(comment.updated_at)}</span></>
+                              : <>Posted {formatDate(comment.created_at)}</>
+                            }
+                          </span>
+                        </div>
                       </div>
                       
-                      <div className="comment-rating">
+                      <div className="comment-body">
                         {editingComment?.comment_id === comment.comment_id ? (
-                          <div className="inline-rating-edit">
-                            {[1, 2, 3, 4, 5].map((star) => (
-                              <button
-                                key={star}
-                                type="button"
-                                className={`star-button inline ${rating >= star ? 'selected' : ''}`}
-                                onClick={() => handleRatingChange(star)}
-                              >
-                                ★
-                              </button>
-                            ))}
-                            {rating > 0 && (
-                              <button 
-                                type="button" 
-                                className="clear-rating-button" 
-                                onClick={() => setRating(0)}
-                              >
-                                clear
-                              </button>
-                            )}
-                          </div>
+                          <>
+                            <textarea
+                              className="inline-edit-textarea"
+                              value={editCommentText}
+                              onChange={(e) => setEditCommentText(e.target.value)}
+                              rows={3}
+                            ></textarea>
+                            {/* Hidden rating control to preserve the rating without showing it */}
+                            <div className="hidden-rating-control">
+                              <span className="subtle-text">Your rating will be preserved but not displayed to others</span>
+                            </div>
+                          </>
                         ) : (
-                          Array.from({ length: 5 }).map((_, i) => (
-                            <span 
-                              key={i} 
-                              className={`star ${i < (comment.rating_value || 0) ? 'filled' : ''}`}
-                            >★</span>
-                          ))
+                          <p>{comment.comment_text}</p>
                         )}
                       </div>
-                    </div>
-                    
-                    <div className="comment-body">
-                      {editingComment?.comment_id === comment.comment_id ? (
-                        <textarea
-                          className="inline-edit-textarea"
-                          value={editCommentText}
-                          onChange={(e) => setEditCommentText(e.target.value)}
-                          rows={3}
-                        ></textarea>
-                      ) : (
-                        <p>{comment.comment_text}</p>
+                      
+                      {isUserComment(comment) && (
+                        <div className="comment-actions">
+                          {editingComment?.comment_id === comment.comment_id ? (
+                            <>
+                              <button
+                                onClick={() => handleSaveComment(comment.comment_id)}
+                                className="save-button"
+                              >
+                                Save
+                              </button>
+                              <button 
+                                onClick={handleCancelEdit}
+                                className="cancel-button"
+                              >
+                                Cancel
+                              </button>
+                            </>
+                          ) : (
+                            <>
+                              <button
+                                onClick={() => handleEditComment(comment)}
+                                className="edit-button"
+                              >
+                                Edit
+                              </button>
+                              <button
+                                onClick={() => handleDeleteComment(comment.comment_id)}
+                                className="delete-button"
+                              >
+                                Delete
+                              </button>
+                            </>
+                          )}
+                        </div>
                       )}
                     </div>
-                    
-                    {isUserComment(comment) && (
-                      <div className="comment-actions">
-                        {editingComment?.comment_id === comment.comment_id ? (
-                          <>
-                            <button
-                              onClick={() => handleSaveComment(comment.comment_id)}
-                              className="save-button"
-                            >
-                              Save
-                            </button>
-                            <button 
-                              onClick={handleCancelEdit}
-                              className="cancel-button"
-                            >
-                              Cancel
-                            </button>
-                          </>
-                        ) : (
-                          <>
-                            <button
-                              onClick={() => handleEditComment(comment)}
-                              className="edit-button"
-                            >
-                              Edit
-                            </button>
-                            <button
-                              onClick={() => handleDeleteComment(comment.comment_id)}
-                              className="delete-button"
-                            >
-                              Delete
-                            </button>
-                          </>
-                        )}
-                      </div>
-                    )}
-                  </div>
-                ))
+                  ))
               )}
             </div>
           </div>

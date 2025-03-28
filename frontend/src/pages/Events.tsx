@@ -174,14 +174,20 @@ const Events: React.FC = () => {
                 {event.avg_rating !== null && event.avg_rating !== undefined && (
                   <div className="event-rating">
                     <span className="rating-stars">
-                      {Array.from({ length: 5 }).map((_, i) => (
-                        <span 
-                          key={i} 
-                          className={`star ${i < Math.round(typeof event.avg_rating === 'number' ? event.avg_rating : 0) ? 'filled' : ''}`}
-                        >★</span>
-                      ))}
+                      {Array.from({ length: 5 }).map((_, i) => {
+                        // Convert avg_rating to a number and handle null/undefined values
+                        const avgRating = event.avg_rating ? parseFloat(String(event.avg_rating)) : 0;
+                        return (
+                          <span 
+                            key={i} 
+                            className={`star ${i < Math.round(avgRating) ? 'filled' : ''}`}
+                          >★</span>
+                        );
+                      })}
                     </span>
-                    <span className="rating-value">({typeof event.avg_rating === 'number' ? event.avg_rating.toFixed(1) : '0.0'})</span>
+                    <span className="rating-value">
+                      ({event.avg_rating ? parseFloat(String(event.avg_rating)).toFixed(1) : '0.0'})
+                    </span>
                   </div>
                 )}
                 <p className="event-description">
