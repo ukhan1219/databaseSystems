@@ -1,7 +1,6 @@
 import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import Login from '../components/Login';
-import Header from '../components/Header';
 
 const LoginPage: React.FC = () => {
     const navigate = useNavigate();
@@ -36,7 +35,6 @@ const LoginPage: React.FC = () => {
 
     return (
         <>
-            <Header />
             <div className="container" style={{ 
                 display: 'flex', 
                 justifyContent: 'center', 
