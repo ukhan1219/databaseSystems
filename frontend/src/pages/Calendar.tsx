@@ -167,17 +167,12 @@ const Calendar: React.FC = () => {
     
     // Filter events for the clicked day
     const eventsOnSelectedDay = calendarEvents.filter(event => {
-      // Create a date object from the event start time
       const eventDate = new Date(event.start);
-      // Create a date object from the clicked date string
       const clickedDateTime = new Date(clickedDate);
       
-      // Convert both to UTC date strings in YYYY-MM-DD format to avoid timezone issues
-      const eventDateUTC = eventDate.toISOString().split('T')[0];
-      const clickedDateUTC = clickedDateTime.toISOString().split('T')[0];
-      
-      // Compare the UTC date strings directly
-      return eventDateUTC === clickedDateUTC;
+      return eventDate.getFullYear() === clickedDateTime.getFullYear() &&
+             eventDate.getMonth() === clickedDateTime.getMonth() &&
+             eventDate.getDate() === clickedDateTime.getDate();
     });
     
     // Sort events by time
