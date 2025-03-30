@@ -66,6 +66,7 @@ const Header: React.FC = () => {
             // Logged in navigation
             <>
               <li><Link to="/events">Events</Link></li>
+              <li><Link to="/calendar">Calendar</Link></li>
               {user.role !== 'super_admin' && (
                 <li><Link to="/rsos">RSOs</Link></li>
               )}

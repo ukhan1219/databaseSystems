@@ -270,15 +270,17 @@ const RSOs: React.FC = () => {
                   <div key={rso.rso_id} className="rso-section">
                     <div className="rso-header">
                       <h2>{rso.rso_name}</h2>
-                      <div className="rso-badges">
-                        {rso.is_admin && <span className="badge admin-badge">Admin</span>}
-                        <span className={`badge status-badge ${rso.is_active ? 'active' : 'inactive'}`}>
-                          {rso.is_active ? 'Active' : 'Inactive'}
-                        </span>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '1rem' }}>
+                        <div className="rso-badges">
+                          {rso.is_admin && <span className="badge admin-badge">Admin</span>}
+                          <span className={`badge status-badge ${rso.is_active ? 'active' : 'inactive'}`}>
+                            {rso.is_active ? 'Active' : 'Inactive'}
+                          </span>
+                        </div>
+                        <Link to={`/rsos/${rso.rso_id}`} className="view-details-button">
+                          View RSO Details
+                        </Link>
                       </div>
-                      <Link to={`/rsos/${rso.rso_id}`} className="view-details-button">
-                        View RSO Details
-                      </Link>
                     </div>
                     
                     <div className="rso-details">

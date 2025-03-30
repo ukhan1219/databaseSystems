@@ -98,20 +98,27 @@
 }
 
 .rso-section {
-  margin-bottom: 30px;
-  border: 1px solid #ddd;
-  border-radius: 5px;
-  padding: 20px;
-  background-color: #f9f9f9;
+  border: 1px solid #dee2e6;
+  border-radius: 8px;
+  padding: 1.5rem;
+  margin-bottom: 1.5rem;
+  background-color: white;
+  box-shadow: 0 2px 4px rgba(0,0,0,0.05);
 }
 
 .rso-header {
   display: flex;
   justify-content: space-between;
   align-items: center;
-  margin-bottom: 15px;
-  padding-bottom: 10px;
-  border-bottom: 1px solid #eee;
+  margin-bottom: 1rem;
+  border-bottom: 1px solid #dee2e6;
+  padding-bottom: 1rem;
+}
+
+.rso-header h2 {
+  margin: 0;
+  font-size: 1.5rem;
+  color: #212529;
 }
 
 .rso-events {
@@ -297,7 +304,7 @@
 .rso-badges {
   display: flex;
   gap: 0.5rem;
-  margin-bottom: 0.5rem;
+  margin-right: 0.5rem;
 }
 
 .badge {
@@ -349,28 +356,4 @@
   grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
   gap: 2rem;
   margin-top: 1.5rem;
-}
-
-.rso-section {
-  border: 1px solid #dee2e6;
-  border-radius: 8px;
-  padding: 1.5rem;
-  margin-bottom: 1.5rem;
-  background-color: white;
-  box-shadow: 0 2px 4px rgba(0,0,0,0.05);
-}
-
-.rso-header {
-  display: flex;
-  justify-content: space-between;
-  align-items: flex-start;
-  margin-bottom: 1rem;
-  border-bottom: 1px solid #dee2e6;
-  padding-bottom: 1rem;
-}
-
-.rso-header h2 {
-  margin: 0;
-  font-size: 1.5rem;
-  color: #212529;
 } 

@@ -5,6 +5,7 @@ import ViewEvent from './pages/ViewEvent'
 import Universities from './pages/Universities'
 import SuperAdmin from './pages/SuperAdmin'
 import Events from './pages/Events'
+import Calendar from './pages/Calendar'
 import RSOs from './pages/RSOs'
 import LoginPage from './pages/LoginPage'
 import RegisterPage from './pages/RegisterPage'
@@ -20,6 +21,7 @@ function App() {
         <Route path="/universities" element={<Universities />} />
         <Route path="/events" element={<Events />} />
         <Route path="/events/:id" element={<ViewEvent />} />
+        <Route path="/calendar" element={<Calendar />} />
         <Route path="/create-event" element={<CreateEvent />} />
         <Route path="/rsos" element={<RSOs />} />
         <Route path="/rsos/create" element={<CreateRSO />} />

@@ -25,22 +25,29 @@
 }
 
 .new-university,
-.view-universities {
+.view-universities,
+.current-university-section {
   flex: 1;
   min-width: 450px;
-  height: 425px;
   background-color: #d3d3d3;
   border: 2px solid #7ec0ee;
   border-radius: 10px;
   padding: 1.5rem;
 }
 
+.current-university-section {
+  height: auto;
+  margin-bottom: 2rem;
+}
+
 .view-universities {
   overflow: auto;
+  height: 425px;
 }
 
 .new-university h2,
-.view-universities h2 {
+.view-universities h2, 
+.current-university-section h2 {
   text-align: center;
   margin-bottom: 1.5rem;
 }
@@ -64,20 +71,135 @@
   border-radius: 4px;
 }
 
-.create-button {
-  width: 100%;
+.create-university-button,
+.change-university-button,
+.select-university-button {
   padding: 0.75rem;
-  background-color: #28a745;
+  background-color: #2196F3;
   color: white;
   border: none;
   border-radius: 4px;
   font-weight: bold;
   cursor: pointer;
   transition: background-color 0.3s;
+  margin-top: 1rem;
+  text-align: center;
+  display: inline-block;
 }
 
-.create-button:hover {
-  background-color: #218838;
+.create-university-button:hover,
+.change-university-button:hover,
+.select-university-button:hover {
+  background-color: #0b7dda;
+}
+
+.change-university-button {
+  margin-top: 1rem;
+  width: 100%;
+}
+
+.select-university-button {
+  width: auto;
+  padding: 0.5rem 1rem;
+}
+
+.university-selection {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 1rem;
+  margin: 1rem 0;
+}
+
+.university-option {
+  flex: 1;
+  min-width: 200px;
+  background-color: #f5f5f5;
+  border: 1px solid #ddd;
+  border-radius: 6px;
+  padding: 1rem;
+  transition: transform 0.2s;
+}
+
+.university-option:hover {
+  transform: translateY(-3px);
+  box-shadow: 0 4px 8px rgba(0,0,0,0.1);
+}
+
+.university-option h4 {
+  margin: 0 0 0.5rem 0;
+  color: #333;
+}
+
+.university-option p {
+  margin: 0 0 1rem 0;
+  color: #666;
+  font-size: 0.9rem;
+}
+
+.create-new-option {
+  margin: 2rem 0 1rem;
+  text-align: center;
+  border-top: 1px solid #ccc;
+  padding-top: 1rem;
+}
+
+.create-new-option h3 {
+  margin-bottom: 0.5rem;
+  font-size: 1.1rem;
+  color: #444;
+}
+
+.create-university-form {
+  margin-top: 1.5rem;
+  padding: 1rem;
+  background-color: #f9f9f9;
+  border-radius: 6px;
+  border: 1px solid #e0e0e0;
+}
+
+.current-university-info {
+  background-color: #f0f8ff;
+  border: 1px solid #b3e0ff;
+  border-radius: 6px;
+  padding: 1rem;
+  margin-bottom: 1rem;
+}
+
+.current-university-info h3 {
+  margin: 0 0 1rem 0;
+  color: #0066cc;
+  border-bottom: 1px solid #b3e0ff;
+  padding-bottom: 0.5rem;
+}
+
+.current-university-info p {
+  margin: 0.5rem 0;
+  color: #333;
+}
+
+.no-university-info {
+  background-color: #fff4e5;
+  border: 1px solid #ffd699;
+  border-radius: 6px;
+  padding: 1rem;
+  margin-bottom: 1rem;
+  text-align: center;
+}
+
+.no-university-info p {
+  margin: 0 0 1rem 0;
+  color: #664d03;
+  font-weight: 500;
+}
+
+.change-university-form {
+  margin-top: 1.5rem;
+}
+
+.change-university-form h3 {
+  margin-bottom: 1rem;
+  font-size: 1.1rem;
+  color: #444;
 }
 
 .universities-list {
