@@ -28,8 +28,8 @@ interface User {
 interface CalendarEvent {
   id: string;
   title: string;
-  start: string;
-  end?: string;
+  start: Date;
+  end?: Date;
   description?: string;
   location?: string;
   backgroundColor?: string;
@@ -47,7 +47,7 @@ const Calendar: React.FC = () => {
   const [calendarEvents, setCalendarEvents] = useState<CalendarEvent[]>([]);
   const [selectedEvent, setSelectedEvent] = useState<CalendarEvent | null>(null);
   const [selectedDayEvents, setSelectedDayEvents] = useState<CalendarEvent[]>([]);
-  const [selectedDate, setSelectedDate] = useState<string | null>(null);
+  const [selectedDate, setSelectedDate] = useState<Date | null>(null);
   const [showDayModal, setShowDayModal] = useState<boolean>(false);
   const [loading, setLoading] = useState<boolean>(true);
   const [error, setError] = useState<string | null>(null);
@@ -102,9 +102,17 @@ const Calendar: React.FC = () => {
           const hours = parseInt(timeParts[0], 10);
           const minutes = parseInt(timeParts[1], 10);
           
-          // Create a start date (event_date + event_time)
-          const startDate = new Date(event.event_date);
-          startDate.setHours(hours, minutes, 0);
+          // Instead of using new Date(event.event_date) which treats a YYYY-MM-DD string as UTC,
+          // split the date parts and create the date in local time.
+          const [year, month, day] = event.event_date.split('-');
+          const startDate = new Date(
+            parseInt(year, 10),
+            parseInt(month, 10) - 1,
+            parseInt(day, 10),
+            hours,
+            minutes,
+            0
+          );
           
           // Create an end date (start date + 2 hours by default)
           const endDate = new Date(startDate);
@@ -112,7 +120,7 @@ const Calendar: React.FC = () => {
           
           // Set color based on event type
           let backgroundColor;
-          switch(event.event_type) {
+          switch (event.event_type) {
             case 'public':
               backgroundColor = '#2196f3'; // Blue
               break;
@@ -129,8 +137,8 @@ const Calendar: React.FC = () => {
           return {
             id: event.event_id.toString(),
             title: event.event_name,
-            start: startDate.toISOString(),
-            end: endDate.toISOString(),
+            start: startDate,
+            end: endDate,
             backgroundColor,
             borderColor: backgroundColor,
             extendedProps: {
@@ -162,17 +170,17 @@ const Calendar: React.FC = () => {
   };
 
   const handleDateClick = (info: any) => {
-    const clickedDate = info.dateStr;
+    const clickedDate = info.date; // Use the Date object provided by FullCalendar
     setSelectedDate(clickedDate);
     
-    // Filter events for the clicked day
+    // Filter events for the clicked day using local time comparison
     const eventsOnSelectedDay = calendarEvents.filter(event => {
       const eventDate = new Date(event.start);
-      const clickedDateTime = new Date(clickedDate);
-      
-      return eventDate.getFullYear() === clickedDateTime.getFullYear() &&
-             eventDate.getMonth() === clickedDateTime.getMonth() &&
-             eventDate.getDate() === clickedDateTime.getDate();
+      return (
+        eventDate.getFullYear() === clickedDate.getFullYear() &&
+        eventDate.getMonth() === clickedDate.getMonth() &&
+        eventDate.getDate() === clickedDate.getDate()
+      );
     });
     
     // Sort events by time
@@ -200,29 +208,33 @@ const Calendar: React.FC = () => {
     navigate(`/events/${eventId}`);
   };
 
-  const formatDate = (dateString: string) => {
+  const formatDate = (date: Date) => {
     const options: Intl.DateTimeFormatOptions = { 
       weekday: 'long', 
       year: 'numeric', 
       month: 'long', 
       day: 'numeric' 
     };
-    return new Date(dateString).toLocaleDateString(undefined, options);
+    return date.toLocaleDateString(undefined, options);
   };
 
-  if (loading) return (
-    <>
-      <Header />
-      <div className="loading">Loading calendar...</div>
-    </>
-  );
+  if (loading) {
+    return (
+      <>
+        <Header />
+        <div className="loading">Loading calendar...</div>
+      </>
+    );
+  }
   
-  if (error) return (
-    <>
-      <Header />
-      <div className="error">{error}</div>
-    </>
-  );
+  if (error) {
+    return (
+      <>
+        <Header />
+        <div className="error">{error}</div>
+      </>
+    );
+  }
 
   return (
     <>
@@ -328,4 +340,4 @@ const Calendar: React.FC = () => {
   );
 };
 
-export default Calendar; 
+export default Calendar;
