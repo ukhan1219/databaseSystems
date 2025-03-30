@@ -289,9 +289,10 @@ router.get('/events/unapproved', async function(req, res, next) {
              e.location_name as Location, 
              e.contact_phone as Phone, 
              e.contact_email as Email,
-             u.username as Creator
+             e.event_type as Type,
+             u.name as University
       FROM event e
-      JOIN users u ON e.created_by = u.user_id
+      JOIN university u ON e.university_id = u.university_id
       WHERE e.approved_by IS NULL
       ORDER BY e.event_date ASC
     `;

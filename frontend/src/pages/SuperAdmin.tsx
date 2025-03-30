@@ -11,6 +11,8 @@ interface Event {
   Location: string;
   Phone: string;
   Email: string;
+  Type: string;
+  University: string;
 }
 
 interface RSO {
@@ -143,6 +145,8 @@ const SuperAdmin: React.FC = () => {
                       <p>Description: {event.Description}</p>
                       <p>Time: {event.Time}</p>
                       <p>Date: {event.Date}</p>
+                      <p>Type: {event.Type}</p>
+                      <p>University: {event.University}</p>
                     </div>
                     <div className="event-contact">
                       <p>Location: {event.Location}</p>
