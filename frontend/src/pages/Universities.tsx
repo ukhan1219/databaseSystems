@@ -48,7 +48,7 @@ const Universities: React.FC = () => {
     }
     const script = document.createElement('script');
     script.id = 'google-maps-script';
-    script.src = 'https://maps.googleapis.com/maps/api/js?key=AIzaSyBXRp_Fi8prlc_3ZyKsQyo0IpS2aIh8ZOs&libraries=places';
+    script.src = 'https://maps.googleapis.com/maps/api/js?key=API_KEY&libraries=places';
     script.async = true;
     script.defer = true;
     script.onload = callback;

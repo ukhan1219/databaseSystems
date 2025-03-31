@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import Header from '../components/Header';
 import './RSOAdmin.css';
@@ -50,8 +50,50 @@ const RSOAdmin: React.FC = () => {
   const [contactEmail, setContactEmail] = useState('');
   const [formError, setFormError] = useState('');
   const [formSuccess, setFormSuccess] = useState('');
+  // New state to capture the full address from Google Maps
+  const [address, setAddress] = useState('');
   
   const navigate = useNavigate();
+
+  // Create a ref for the Location input field
+  const locationRef = useRef<HTMLInputElement>(null);
+
+  // Helper to dynamically load Google Maps API
+  const loadGoogleMapsScript = (callback: () => void) => {
+    if (document.getElementById('google-maps-script')) {
+      callback();
+      return;
+    }
+    const script = document.createElement('script');
+    script.id = 'google-maps-script';
+    script.src = 'https://maps.googleapis.com/maps/api/js?key=API_KEY&libraries=places';
+    script.async = true;
+    script.defer = true;
+    script.onload = callback;
+    document.body.appendChild(script);
+  };
+
+  // Attach autocomplete to the location input (no restrictions on place types)
+  useEffect(() => {
+    loadGoogleMapsScript(() => {
+      if (window.google && locationRef.current) {
+        const autocomplete = new window.google.maps.places.Autocomplete(locationRef.current);
+        autocomplete.setFields(['formatted_address', 'name']);
+        autocomplete.addListener('place_changed', () => {
+          const place = autocomplete.getPlace();
+          if (place.formatted_address) {
+            setAddress(place.formatted_address);
+          }
+          // Update locationName with the place's name, or fallback to formatted_address if not available.
+          if (place.name) {
+            setLocationName(place.name);
+          } else if (place.formatted_address) {
+            setLocationName(place.formatted_address);
+          }
+        });
+      }
+    });
+  }, []);
 
   // Check if user is an admin
   useEffect(() => {
@@ -195,6 +237,7 @@ const RSOAdmin: React.FC = () => {
           event_time: eventTime,
           event_type: 'rso',
           location_name: locationName,
+          address: address, // Send the full address captured from Google Maps
           contact_phone: contactPhone,
           contact_email: contactEmail,
           rso_id: selectedRSO
@@ -215,6 +258,7 @@ const RSOAdmin: React.FC = () => {
         setLocationName('');
         setContactPhone('');
         setContactEmail('');
+        setAddress('');
         
         // Refresh events list
         const updatedResponse = await fetch(`http://localhost:5001/api/rsos/${selectedRSO}/events`, {
@@ -352,6 +396,7 @@ const RSOAdmin: React.FC = () => {
                     <input 
                       type="text" 
                       id="location-name" 
+                      ref={locationRef}
                       value={locationName} 
                       onChange={(e) => setLocationName(e.target.value)}
                       required
@@ -415,4 +460,4 @@ const RSOAdmin: React.FC = () => {
   );
 };
 
-export default RSOAdmin; 
+export default RSOAdmin;

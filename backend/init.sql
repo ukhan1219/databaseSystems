@@ -79,6 +79,7 @@ CREATE TABLE IF NOT EXISTS event (
     rso_id INT,
     university_id INT,
     approved_by INT,
+    address VARCHAR(255),
     CONSTRAINT fk_event_rso FOREIGN KEY (rso_id) 
         REFERENCES rso (rso_id) 
         ON DELETE SET NULL,

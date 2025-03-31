@@ -12,6 +12,7 @@ interface Event {
   event_type: 'public' | 'private' | 'rso';
   event_category: string;
   location_name: string;
+  address?: string;
   contact_phone: string;
   contact_email: string;
   is_approved: boolean;
@@ -29,7 +30,7 @@ interface User {
 type FilterType = 'all' | 'public' | 'private';
 
 const Events: React.FC = () => {
-  const [_, setEvents] = useState<Event[]>([]);
+  const [events, setEvents] = useState<Event[]>([]);
   const [filteredEvents, setFilteredEvents] = useState<Event[]>([]);
   const [activeFilter, setActiveFilter] = useState<FilterType>('all');
   const [loading, setLoading] = useState<boolean>(true);
@@ -37,7 +38,7 @@ const Events: React.FC = () => {
   const [user, setUser] = useState<User | null>(null);
   const navigate = useNavigate();
 
-  // First fetch the current user
+  // Fetch current user
   useEffect(() => {
     const fetchUser = async () => {
       try {
@@ -46,7 +47,6 @@ const Events: React.FC = () => {
         });
         
         if (!response.ok) {
-          // If not logged in, redirect to login page
           navigate('/login');
           return;
         }
@@ -62,16 +62,13 @@ const Events: React.FC = () => {
     fetchUser();
   }, [navigate]);
 
-  // Then fetch events based on the selected filter
+  // Fetch events based on filter
   useEffect(() => {
     const fetchEvents = async () => {
       if (!user) return;
       
       try {
-        // Fetch events based on the current filter
         let url = 'http://localhost:5001/api/events';
-        
-        // Add query parameter for filtering if not "all"
         if (activeFilter !== 'all') {
           url += `?selection=${activeFilter}`;
         }
@@ -86,7 +83,6 @@ const Events: React.FC = () => {
         
         const data = await response.json();
         console.log('Fetched events:', data.events);
-        
         setEvents(data.events || []);
         setFilteredEvents(data.events || []);
       } catch (err) {
@@ -104,25 +100,27 @@ const Events: React.FC = () => {
 
   const handleFilterClick = (filter: FilterType) => {
     setActiveFilter(filter);
-    setLoading(true); // Show loading while fetching new filtered events
+    setLoading(true);
   };
 
-  // Check if user is admin or super_admin to conditionally show create event button
+  // Only admins or super_admins can create events
   const canCreateEvents = user && (user.role === 'admin' || user.role === 'super_admin');
 
-  if (loading) return (
-    <>
-      <Header />
-      <div className="loading">Loading events...</div>
-    </>
-  );
+  if (loading)
+    return (
+      <>
+        <Header />
+        <div className="loading">Loading events...</div>
+      </>
+    );
   
-  if (error) return (
-    <>
-      <Header />
-      <div className="error">{error}</div>
-    </>
-  );
+  if (error)
+    return (
+      <>
+        <Header />
+        <div className="error">{error}</div>
+      </>
+    );
 
   return (
     <>
@@ -132,19 +130,19 @@ const Events: React.FC = () => {
         
         <div className="event-filter">
           <div className="filter-tags">
-            <button 
+            <button
               className={`filter-button ${activeFilter === 'all' ? 'active' : ''}`}
               onClick={() => handleFilterClick('all')}
             >
               All
             </button>
-            <button 
+            <button
               className={`filter-button public ${activeFilter === 'public' ? 'active' : ''}`}
               onClick={() => handleFilterClick('public')}
             >
               Public
             </button>
-            <button 
+            <button
               className={`filter-button private ${activeFilter === 'private' ? 'active' : ''}`}
               onClick={() => handleFilterClick('private')}
             >
@@ -162,8 +160,8 @@ const Events: React.FC = () => {
         <div className="events-list">
           {filteredEvents.length === 0 ? (
             <p className="no-events">
-              {activeFilter === 'all' 
-                ? 'No events found.' 
+              {activeFilter === 'all'
+                ? 'No events found.'
                 : `No ${activeFilter} events found.`}
             </p>
           ) : (
@@ -175,13 +173,11 @@ const Events: React.FC = () => {
                   <div className="event-rating">
                     <span className="rating-stars">
                       {Array.from({ length: 5 }).map((_, i) => {
-                        // Convert avg_rating to a number and handle null/undefined values
                         const avgRating = event.avg_rating ? parseFloat(String(event.avg_rating)) : 0;
                         return (
-                          <span 
-                            key={i} 
-                            className={`star ${i < Math.round(avgRating) ? 'filled' : ''}`}
-                          >★</span>
+                          <span key={i} className={`star ${i < Math.round(avgRating) ? 'filled' : ''}`}>
+                            ★
+                          </span>
                         );
                       })}
                     </span>
@@ -191,18 +187,33 @@ const Events: React.FC = () => {
                   </div>
                 )}
                 <p className="event-description">
-                  {event.event_description.length > 150 
-                    ? `${event.event_description.substring(0, 150)}...` 
+                  {event.event_description.length > 150
+                    ? `${event.event_description.substring(0, 150)}...`
                     : event.event_description}
                 </p>
                 <div className="event-meta">
-                  <p><strong>Date:</strong> {new Date(event.event_date).toLocaleDateString()}</p>
-                  <p><strong>Time:</strong> {event.event_time}</p>
+                  <p>
+                    <strong>Date:</strong> {new Date(event.event_date).toLocaleDateString()}
+                  </p>
+                  <p>
+                    <strong>Time:</strong> {event.event_time}
+                  </p>
                   {event.university_name && (
-                    <p><strong>University:</strong> {event.university_name}</p>
+                    <p>
+                      <strong>University:</strong> {event.university_name}
+                    </p>
                   )}
-                  <p><strong>Location:</strong> {event.location_name}</p>
-                  <p><strong>Category:</strong> {event.event_category}</p>
+                  <p>
+                    <strong>Location:</strong> {event.location_name}
+                  </p>
+                  {event.address && (
+                    <p>
+                      <strong>Address:</strong> {event.address}
+                    </p>
+                  )}
+                  <p>
+                    <strong>Category:</strong> {event.event_category}
+                  </p>
                 </div>
                 <Link to={`/events/${event.event_id}`} className="view-details-button">
                   View
@@ -216,4 +227,4 @@ const Events: React.FC = () => {
   );
 };
 
-export default Events; 
+export default Events;

@@ -12,9 +12,7 @@ router.use(bodyParser.json());
 
 /* GET users listing. */
 router.get('/', async function(req, res, next) {
-
-  if(req.session.username)
-  {
+  if(req.session.username) {
     console.log(req.url);
     try {
       // Get user's university
@@ -54,8 +52,7 @@ router.get('/', async function(req, res, next) {
       `;
       
       // Filter by event type if specified
-      if(req.query.selection === "private")
-      {
+      if(req.query.selection === "private") {
          queryString = `
            SELECT e.*, u.name as university_name,
            (SELECT AVG(rating_value) FROM rating WHERE rating.event_id = e.event_id) as avg_rating 
@@ -65,8 +62,7 @@ router.get('/', async function(req, res, next) {
          `;
         console.log("filter:private");
       }    
-      else if(req.query.selection === "rso")
-      {
+      else if(req.query.selection === "rso") {
          queryString = `
            SELECT DISTINCT e.*, u.name as university_name,
            (SELECT AVG(rating_value) FROM rating WHERE event_id = e.event_id) as avg_rating
@@ -78,8 +74,7 @@ router.get('/', async function(req, res, next) {
          `;
         console.log("filter:rso");
       }    
-      else if(req.query.selection === "public")
-      {
+      else if(req.query.selection === "public") {
          queryString = `
            SELECT e.*, u.name as university_name,
            (SELECT AVG(rating_value) FROM rating WHERE rating.event_id = e.event_id) as avg_rating
@@ -122,8 +117,7 @@ router.get('/', async function(req, res, next) {
       next(err);
     }
   }
-  else
-  {
+  else {
     console.log("user not logged in");
     res.redirect('/');
   }
@@ -162,6 +156,7 @@ router.post('/', async function(req, res, next) {
       event_date, 
       event_time,
       location_name,
+      address,            // NEW: address field from request body
       latitude,
       longitude,
       contact_phone,
@@ -215,7 +210,7 @@ router.post('/', async function(req, res, next) {
       approvedBy = userId;
     }
     
-    // Insert new event
+    // Insert new event with the new address field
     const insertEvent = `
       INSERT INTO event (
         event_name, 
@@ -225,6 +220,7 @@ router.post('/', async function(req, res, next) {
         event_date, 
         event_time,
         location_name,
+        address,
         latitude,
         longitude,
         contact_phone,
@@ -232,7 +228,7 @@ router.post('/', async function(req, res, next) {
         rso_id,
         university_id,
         approved_by
-      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
     `;
     
     const result = await pool.query(insertEvent, [
@@ -243,6 +239,7 @@ router.post('/', async function(req, res, next) {
       event_date,
       event_time,
       location_name || null,
+      address || null,  // NEW: pass address value
       latitude || null,
       longitude || null,
       contact_phone || null,
@@ -449,8 +446,7 @@ router.get('/:eventid', async function(req, res, next) {
   const eventId = req.params.eventid;
   console.log("Fetching event: " + eventId);
 
-  if(req.session.username)
-  {
+  if(req.session.username) {
     console.log("User: " + req.session.username + " logged in");
     
     try {
@@ -508,8 +504,7 @@ router.get('/:eventid', async function(req, res, next) {
       next(err);
     }
   }
-  else
-  {
+  else {
     console.log("user not logged in");
     res.redirect('/');
   }

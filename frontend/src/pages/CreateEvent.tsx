@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import Header from '../components/Header';
 import './CreateEvent.css';
@@ -27,7 +27,51 @@ const CreateEvent: React.FC = () => {
   const [locationName, setLocationName] = useState('');
   const [contactPhone, setContactPhone] = useState('');
   const [contactEmail, setContactEmail] = useState('');
-  
+  // New state to capture the full address from Google Maps
+  const [address, setAddress] = useState('');
+
+  // Create a ref for the Location input field
+  const locationRef = useRef<HTMLInputElement>(null);
+
+  // Dynamically load the Google Maps API script
+  const loadGoogleMapsScript = (callback: () => void) => {
+    if (document.getElementById('google-maps-script')) {
+      callback();
+      return;
+    }
+    const script = document.createElement('script');
+    script.id = 'google-maps-script';
+    script.src = 'https://maps.googleapis.com/maps/api/js?key=API_KEY&libraries=places';
+    script.async = true;
+    script.defer = true;
+    script.onload = callback;
+    document.body.appendChild(script);
+  };
+
+  // Attach autocomplete to the location input without restrictions on place types.
+  useEffect(() => {
+    loadGoogleMapsScript(() => {
+      if (window.google && locationRef.current) {
+        const autocomplete = new window.google.maps.places.Autocomplete(locationRef.current);
+        // Request formatted_address and name fields from the API
+        autocomplete.setFields(['formatted_address', 'name']);
+        autocomplete.addListener('place_changed', () => {
+          const place = autocomplete.getPlace();
+          // Capture the full formatted address
+          if (place.formatted_address) {
+            setAddress(place.formatted_address);
+          }
+          // Optionally update the locationName state with the place's name (or formatted address if name not available)
+          if (place.name) {
+            setLocationName(place.name);
+          } else if (place.formatted_address) {
+            setLocationName(place.formatted_address);
+          }
+        });
+      }
+    });
+  }, []);
+
   // Fetch user data and check authorization
   useEffect(() => {
     const fetchUser = async () => {
@@ -52,7 +96,6 @@ const CreateEvent: React.FC = () => {
         
         setUser(userData);
         setLoading(false);
-        
       } catch (err) {
         setError('Failed to authenticate user');
         navigate('/login');
@@ -75,7 +118,7 @@ const CreateEvent: React.FC = () => {
         return;
       }
       
-      // Make API call to create event
+      // Make API call to create event. The "address" field is sent to the backend.
       const response = await fetch('http://localhost:5001/api/events', {
         method: 'POST',
         headers: {
@@ -90,6 +133,7 @@ const CreateEvent: React.FC = () => {
           event_time: eventTime,
           event_type: eventType,
           location_name: locationName,
+          address: address,           // Full address captured from Google Maps
           contact_phone: contactPhone,
           contact_email: contactEmail
         })
@@ -109,6 +153,7 @@ const CreateEvent: React.FC = () => {
         setLocationName('');
         setContactPhone('');
         setContactEmail('');
+        setAddress('');
         
         // Redirect after a delay
         setTimeout(() => {
@@ -123,12 +168,13 @@ const CreateEvent: React.FC = () => {
     }
   };
 
-  if (loading) return (
-    <>
-      <Header />
-      <div className="loading">Loading...</div>
-    </>
-  );
+  if (loading) 
+    return (
+      <>
+        <Header />
+        <div className="loading">Loading...</div>
+      </>
+    );
 
   return (
     <>
@@ -220,6 +266,7 @@ const CreateEvent: React.FC = () => {
               <input 
                 type="text" 
                 id="location-name" 
+                ref={locationRef}
                 value={locationName} 
                 onChange={(e) => setLocationName(e.target.value)}
                 required
@@ -264,4 +311,4 @@ const CreateEvent: React.FC = () => {
   );
 };
 
-export default CreateEvent; 
+export default CreateEvent;
