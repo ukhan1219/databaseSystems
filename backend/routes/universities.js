@@ -54,7 +54,7 @@ router.post('/', async function(req, res, next) {
       });
     }
 
-    const { name, location, description, number_of_students, pictures } = req.body;
+    const { name, location, description, number_of_students } = req.body;
     
     // Check for missing required fields
     if (!name) {
@@ -67,16 +67,15 @@ router.post('/', async function(req, res, next) {
     // Insert new university
     const insertUniversity = `
       INSERT INTO university 
-      (name, location, description, number_of_students, pictures) 
-      VALUES (?, ?, ?, ?, ?)
+      (name, location, description, number_of_students) 
+      VALUES (?, ?, ?, ?)
     `;
 
     const result = await pool.query(insertUniversity, [
       name, 
       location || null, 
       description || null, 
-      number_of_students || null, 
-      pictures || null
+      number_of_students || null
     ]);
     
     const universityId = result[0].insertId;

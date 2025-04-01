@@ -157,8 +157,6 @@ router.post('/', async function(req, res, next) {
       event_time,
       location_name,
       address,            // NEW: address field from request body
-      latitude,
-      longitude,
       contact_phone,
       contact_email,
       rso_id
@@ -221,14 +219,12 @@ router.post('/', async function(req, res, next) {
         event_time,
         location_name,
         address,
-        latitude,
-        longitude,
         contact_phone,
         contact_email,
         rso_id,
         university_id,
         approved_by
-      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
     `;
     
     const result = await pool.query(insertEvent, [
@@ -240,8 +236,6 @@ router.post('/', async function(req, res, next) {
       event_time,
       location_name || null,
       address || null,  // NEW: pass address value
-      latitude || null,
-      longitude || null,
       contact_phone || null,
       contact_email || null,
       rso_id || null,
@@ -966,8 +960,6 @@ router.put('/:eventid', async function(req, res, next) {
       event_date, 
       event_time,
       location_name,
-      latitude,
-      longitude,
       contact_phone,
       contact_email
     } = req.body;
@@ -989,8 +981,6 @@ router.put('/:eventid', async function(req, res, next) {
         event_date = ?,
         event_time = ?,
         location_name = ?,
-        latitude = ?,
-        longitude = ?,
         contact_phone = ?,
         contact_email = ?
       WHERE event_id = ?
@@ -1003,8 +993,6 @@ router.put('/:eventid', async function(req, res, next) {
       event_date,
       event_time,
       location_name || null,
-      latitude || null,
-      longitude || null,
       contact_phone || null,
       contact_email || null,
       eventId
