@@ -612,7 +612,7 @@ const ViewEvent: React.FC = () => {
           <div className="detail-section">
             <h3>Date & Time</h3>
             <p><strong>Date:</strong> {new Date(event.event_date).toLocaleDateString()}</p>
-            <p><strong>Time:</strong> {event.event_time}</p>
+            <p><strong>Time:</strong> {new Date(`1970-01-01T${event.event_time}`).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', hour12: true })}</p>
             <p><strong>Category:</strong> {event.event_category}</p>
           </div>
           

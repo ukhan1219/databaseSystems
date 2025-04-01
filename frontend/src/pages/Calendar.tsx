@@ -115,8 +115,17 @@ const Calendar: React.FC = () => {
           );
           
           // Create an end date (start date + 2 hours by default)
-          const endDate = new Date(startDate);
+          let endDate = new Date(startDate);
           endDate.setHours(endDate.getHours() + 2);
+
+          // Calculate the end of the day (23:59:59)
+          const endOfDay = new Date(startDate);
+          endOfDay.setHours(23, 59, 59, 999);
+
+          // Ensure the end date doesn't exceed the end of the day
+          if (endDate > endOfDay) 
+            endDate = endOfDay;
+
           
           // Set color based on event type
           let backgroundColor;

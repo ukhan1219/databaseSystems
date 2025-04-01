@@ -196,7 +196,7 @@ const Events: React.FC = () => {
                     <strong>Date:</strong> {new Date(event.event_date).toLocaleDateString()}
                   </p>
                   <p>
-                    <strong>Time:</strong> {event.event_time}
+                    <strong>Time:</strong> {new Date(`1970-01-01T${event.event_time}`).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', hour12: true })}
                   </p>
                   {event.university_name && (
                     <p>

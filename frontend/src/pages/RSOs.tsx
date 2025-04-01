@@ -317,7 +317,7 @@ const RSOs: React.FC = () => {
                               )}
                               <div className="event-meta">
                                 <p><strong>Date:</strong> {new Date(event.event_date).toLocaleDateString()}</p>
-                                <p><strong>Time:</strong> {event.event_time}</p>
+                                <p><strong>Time:</strong> {new Date(`1970-01-01T${event.event_time}`).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', hour12: true })}</p>
                                 <p><strong>Location:</strong> {event.location_name}</p>
                               </div>
                               <Link to={`/events/${event.event_id}`} className="view-details-button">
