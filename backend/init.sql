@@ -11,8 +11,7 @@ CREATE TABLE IF NOT EXISTS university (
     name VARCHAR(255) NOT NULL,
     location VARCHAR(255),
     description TEXT,
-    number_of_students INT,
-    pictures VARCHAR(512)
+    number_of_students INT
 );
 
 -- ======================================================
@@ -72,8 +71,6 @@ CREATE TABLE IF NOT EXISTS event (
     event_date DATE NOT NULL,
     event_time TIME NOT NULL,
     location_name VARCHAR(255),
-    latitude DECIMAL(9,6),
-    longitude DECIMAL(9,6),
     contact_phone VARCHAR(20),
     contact_email VARCHAR(255),
     rso_id INT,
