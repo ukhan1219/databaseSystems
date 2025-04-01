@@ -34,6 +34,7 @@ const CreateEvent: React.FC = () => {
   const locationRef = useRef<HTMLInputElement>(null);
 
   // Dynamically load the Google Maps API script
+  /*
   const loadGoogleMapsScript = (callback: () => void) => {
     if (document.getElementById('google-maps-script')) {
       callback();
@@ -41,27 +42,34 @@ const CreateEvent: React.FC = () => {
     }
     const script = document.createElement('script');
     script.id = 'google-maps-script';
-    script.src = 'https://maps.googleapis.com/maps/api/js?key=API_KEY&libraries=places';
+    script.src = 'https://maps.googleapis.com/maps/api/js?key=KEY_LOCATION&libraries=places';
     script.async = true;
     script.defer = true;
     script.onload = callback;
     document.body.appendChild(script);
   };
+*/
+// New function for checking if api is loaded in
+  const waitForGoogleMaps = (callback: () => void) => {
+    const checkInterval = setInterval(() => {
+      if (window.google && window.google.maps && window.google.maps.places) {
+        clearInterval(checkInterval);
+        callback();
+      }
+    }, 100); // check every 100ms
+  };
 
   // Attach autocomplete to the location input without restrictions on place types.
   useEffect(() => {
-    loadGoogleMapsScript(() => {
-      if (window.google && locationRef.current) {
+    waitForGoogleMaps(() => { // Now calls helper function (should fix api issue)
+      if (locationRef.current) {
         const autocomplete = new window.google.maps.places.Autocomplete(locationRef.current);
-        // Request formatted_address and name fields from the API
         autocomplete.setFields(['formatted_address', 'name']);
         autocomplete.addListener('place_changed', () => {
           const place = autocomplete.getPlace();
-          // Capture the full formatted address
           if (place.formatted_address) {
             setAddress(place.formatted_address);
           }
-          // Optionally update the locationName state with the place's name (or formatted address if name not available)
           if (place.name) {
             setLocationName(place.name);
           } else if (place.formatted_address) {
@@ -71,7 +79,7 @@ const CreateEvent: React.FC = () => {
       }
     });
   }, []);
-
+  
   // Fetch user data and check authorization
   useEffect(() => {
     const fetchUser = async () => {

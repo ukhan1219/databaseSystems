@@ -40,6 +40,7 @@ const Universities: React.FC = () => {
   // Ref for the University Name input field to attach autocomplete
   const universityNameRef = useRef<HTMLInputElement>(null);
 
+  /*
   // Dynamically load the Google Maps API script
   const loadGoogleMapsScript = (callback: () => void) => {
     if (document.getElementById('google-maps-script')) {
@@ -48,64 +49,78 @@ const Universities: React.FC = () => {
     }
     const script = document.createElement('script');
     script.id = 'google-maps-script';
-    script.src = 'https://maps.googleapis.com/maps/api/js?key=API_KEY&libraries=places';
+    script.src = 'https://maps.googleapis.com/maps/api/js?key=KEY_LOCATION&libraries=places';
     script.async = true;
     script.defer = true;
     script.onload = callback;
     document.body.appendChild(script);
   };
+*/
+
+  const waitForGoogleMaps = (callback: () => void) => {
+    const checkInterval = setInterval(() => {
+      if (window.google && window.google.maps && window.google.maps.places) {
+        clearInterval(checkInterval);
+        callback();
+      }
+    }, 100);
+  };
+
 
   // When the create form is shown, attach autocomplete to the University Name input
   useEffect(() => {
-    if (showCreateForm) {
-      loadGoogleMapsScript(() => {
-        if (window.google && universityNameRef.current) {
-          const autocomplete = new window.google.maps.places.Autocomplete(universityNameRef.current, {
-            types: ['establishment']
-          });
-          // Request specific fields including types for filtering
-          autocomplete.setFields(['address_components', 'formatted_address', 'name', 'geometry', 'types']);
-          autocomplete.addListener('place_changed', () => {
-            const place = autocomplete.getPlace();
-            // Filter to only allow educational institutions
-            const allowedTypes = ['university', 'college', 'school'];
-            const isValid = place.types && place.types.some((t: string) => allowedTypes.includes(t));
-            if (!isValid) {
-              alert("Please select a valid university or college.");
-              return;
-            }
-            // Extract city and state for location display
-            let city = '';
-            let state = '';
-            if (place.address_components) {
-              for (const component of place.address_components) {
-                if (component.types.includes('locality')) {
-                  city = component.long_name;
-                }
-                if (component.types.includes('administrative_area_level_1')) {
-                  state = component.long_name;
-                }
+    if (!showCreateForm) return;
+  
+    waitForGoogleMaps(() => {
+      if (universityNameRef.current) {
+        const autocomplete = new window.google.maps.places.Autocomplete(universityNameRef.current, {
+          types: ['establishment']
+        });
+  
+        autocomplete.setFields(['address_components', 'formatted_address', 'name', 'geometry', 'types']);
+  
+        autocomplete.addListener('place_changed', () => {
+          const place = autocomplete.getPlace();
+  
+          const allowedTypes = ['university', 'college', 'school'];
+          const isValid = place.types && place.types.some((t: string) => allowedTypes.includes(t));
+  
+          if (!isValid) {
+            alert("Please select a valid university or college.");
+            return;
+          }
+  
+          let city = '';
+          let state = '';
+          if (place.address_components) {
+            for (const component of place.address_components) {
+              if (component.types.includes('locality')) {
+                city = component.long_name;
+              }
+              if (component.types.includes('administrative_area_level_1')) {
+                state = component.long_name;
               }
             }
-            if (city && state) {
-              setFormData(prev => ({
-                ...prev,
-                Location: `${city}, ${state}`,
-                University_Name: place.name || prev.University_Name
-              }));
-            } else {
-              // Fallback to the formatted address if city/state not found
-              setFormData(prev => ({
-                ...prev,
-                Location: place.formatted_address || '',
-                University_Name: place.name || prev.University_Name
-              }));
-            }
-          });
-        }
-      });
-    }
+          }
+  
+          if (city && state) {
+            setFormData(prev => ({
+              ...prev,
+              Location: `${city}, ${state}`,
+              University_Name: place.name || prev.University_Name
+            }));
+          } else {
+            setFormData(prev => ({
+              ...prev,
+              Location: place.formatted_address || '',
+              University_Name: place.name || prev.University_Name
+            }));
+          }
+        });
+      }
+    });
   }, [showCreateForm]);
+  
 
   // Fetch current user information
   useEffect(() => {

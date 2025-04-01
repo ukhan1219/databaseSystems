@@ -70,6 +70,7 @@ CREATE TABLE event (
     event_date         DATE NOT NULL,
     event_time         TIME NOT NULL,
     location_name      VARCHAR(255),
+    address            VARCHAR(255),
     latitude           DECIMAL(9, 6),
     longitude          DECIMAL(9, 6),
     contact_phone      VARCHAR(20),

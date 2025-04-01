@@ -58,6 +58,10 @@ const RSOAdmin: React.FC = () => {
   // Create a ref for the Location input field
   const locationRef = useRef<HTMLInputElement>(null);
 
+  /*
+  
+  *don't know why we need this? can uncomment in future if causing issues*
+
   // Helper to dynamically load Google Maps API
   const loadGoogleMapsScript = (callback: () => void) => {
     if (document.getElementById('google-maps-script')) {
@@ -66,17 +70,28 @@ const RSOAdmin: React.FC = () => {
     }
     const script = document.createElement('script');
     script.id = 'google-maps-script';
-    script.src = 'https://maps.googleapis.com/maps/api/js?key=API_KEY&libraries=places';
+    script.src = 'https://maps.googleapis.com/maps/api/js?key=KEY_LOCATION&libraries=places';
     script.async = true;
     script.defer = true;
     script.onload = callback;
     document.body.appendChild(script);
   };
+*/
 
+  const waitForGoogleMaps = (callback: () => void) => {
+      const checkInterval = setInterval(() => {
+        if (window.google && window.google.maps && window.google.maps.places) {
+          clearInterval(checkInterval);
+          callback();
+        }
+      }, 100); // check every 100ms
+    };
+
+  
   // Attach autocomplete to the location input (no restrictions on place types)
   useEffect(() => {
-    loadGoogleMapsScript(() => {
-      if (window.google && locationRef.current) {
+    waitForGoogleMaps(() => {
+      if (locationRef.current) {
         const autocomplete = new window.google.maps.places.Autocomplete(locationRef.current);
         autocomplete.setFields(['formatted_address', 'name']);
         autocomplete.addListener('place_changed', () => {
@@ -84,7 +99,6 @@ const RSOAdmin: React.FC = () => {
           if (place.formatted_address) {
             setAddress(place.formatted_address);
           }
-          // Update locationName with the place's name, or fallback to formatted_address if not available.
           if (place.name) {
             setLocationName(place.name);
           } else if (place.formatted_address) {
@@ -94,6 +108,7 @@ const RSOAdmin: React.FC = () => {
       }
     });
   }, []);
+  
 
   // Check if user is an admin
   useEffect(() => {
