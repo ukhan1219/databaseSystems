@@ -156,7 +156,7 @@ router.post('/', async function(req, res, next) {
       event_date, 
       event_time,
       location_name,
-      address,            // NEW: address field from request body
+      address,
       contact_phone,
       contact_email,
       rso_id
@@ -175,6 +175,27 @@ router.post('/', async function(req, res, next) {
       return res.status(400).json({
         success: false,
         message: "Invalid event type. Must be 'public', 'private', or 'rso'"
+      });
+    }
+    
+    // Check for event time and location conflicts
+    const conflictCheckQuery = `
+      SELECT e.* FROM event e 
+      WHERE e.event_date = ? 
+      AND e.event_time = ? 
+      AND LOWER(e.location_name) = LOWER(?)
+    `;
+    
+    const [conflictResult] = await pool.query(conflictCheckQuery, [
+      event_date, 
+      event_time, 
+      location_name
+    ]);
+    
+    if (conflictResult.length > 0) {
+      return res.status(409).json({
+        success: false,
+        message: "An event is already scheduled at this location and time"
       });
     }
     
@@ -235,7 +256,7 @@ router.post('/', async function(req, res, next) {
       event_date,
       event_time,
       location_name || null,
-      address || null,  // NEW: pass address value
+      address || null,
       contact_phone || null,
       contact_email || null,
       rso_id || null,

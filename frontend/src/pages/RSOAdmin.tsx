@@ -285,7 +285,12 @@ const RSOAdmin: React.FC = () => {
           setEvents(updatedData.events || []);
         }
       } else {
-        setFormError(data.message || 'Failed to create event');
+        // Check specifically for conflict error (status 409)
+        if (response.status === 409) {
+          setFormError('An event is already scheduled at this location and time. Please choose a different time or location.');
+        } else {
+          setFormError(data.message || 'Failed to create event');
+        }
       }
     } catch (err) {
       setFormError('Error creating event');

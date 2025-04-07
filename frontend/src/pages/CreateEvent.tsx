@@ -168,7 +168,12 @@ const CreateEvent: React.FC = () => {
           navigate('/events');
         }, 2000);
       } else {
-        setError(data.message || 'Failed to create event');
+        // Check specifically for conflict error (status 409)
+        if (response.status === 409) {
+          setError('An event is already scheduled at this location and time. Please choose a different time or location.');
+        } else {
+          setError(data.message || 'Failed to create event');
+        }
       }
     } catch (err) {
       setError('Error creating event');
